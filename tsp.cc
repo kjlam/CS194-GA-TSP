@@ -4,7 +4,8 @@
  *  Created on: Apr 17, 2012
  *      Author: Kelvin
  */
-
+#include <stdio.h>
+#include <stdlib.h>
 #include "city.h"
 #include "tour.h"
 
@@ -14,8 +15,9 @@ float greedy_selection_percentage;
 int num_closer_way_points;
 int group_size;
 float mutation_percent;
-int termination_step
+int termination_step;
 int** distance_matrix;
+int ** closest_neighbors;
 tour* population;
 	//Tour new_population[]
 
@@ -34,14 +36,67 @@ public void run(){
 	termination_step = 20;
 	distance_matrix = new int[num_cities][num_cities];
 	population = new population[population_size];
+	closest_neightbors = new int[num_cities][num_closer_way_points];
 	generate_distance_matrix();
 	generate_initial_population();
+
+}
+
+/*
+ * partition: used in quick_select
+ */
+int partition(int* input, int p, int r)
+{
+    int pivot = input[r];
+
+    while ( p < r )
+    {
+        while ( input[p] < pivot )
+            p++;
+
+        while ( input[r] > pivot )
+            r--;
+
+        if ( input[p] == input[r] )
+            p++;
+        else if ( p < r ) {
+            int tmp = input[p];
+            input[p] = input[r];
+            input[r] = tmp;
+        }
+    }
+
+    return r;
+}
+
+/*
+ * quickselect: finds the kth smallest value within the index of p and r of input
+ */
+int quick_select(int* input, int p, int r, int k)
+{
+	while(){
+		if ( p == r )
+			return input[p];
+		int j = partition(input, p, r);
+		int length = j - p + 1;
+		if ( length == k )
+			return input[j];
+		else if ( k < length )
+			r = j-1;
+		else{
+			k -= length;
+			p = j + 1;
+		}
+	}
 }
 
 /*
  * generates a distance matrix in distance_matrix
  */
 public generate_distance_matrix(){
+	for(int i = 0; i < population_size; i++){
+
+	}
 
 }
 /*
@@ -55,11 +110,35 @@ public void generate_initial_population(){
 }
 
 /*
+ * find_n_closest_neighbors finds the n closest neighbors for all the cities
+ * and place them in closest_neighbors 2d array
+ */
+private void generate_closest_neighbors(){
+	for(int i = 0; i < population_size; i++){
+		int closest_index = 0;
+	    int m = quick_select(distance_matrix[i], 0, population_size - 1, num_closer_way_points);
+	    closest_neighbors[i][closest_index] = m;
+	    closest_index++;
+		for(int k = 0; k < population_size; k++){
+			if(distance_matrix[i][k] < m){
+				closest_neighbors]i][closest_index] = distance_matrix[i][k];
+				closest_index++;
+				if(closest_index == num_closer_way_points){
+					return;
+				}
+			}
+		}
+	}
+}
+
+
+
+/*
  * 	Tour generate_tour(): returns a tour based on the distance_matrix
 	paper had 2 methods for picking the next waypoint in a tour that
 	were influenced by the greedy_selection_percentage
  */
-public void generate_tour(){
+private tour generate_tour(){
 
 }
 

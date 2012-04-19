@@ -12,7 +12,6 @@ struct city
 {
 	int cityNum;
 	int* closest_neighbors;
-	int distance_matrix[][];
 
 };
 
