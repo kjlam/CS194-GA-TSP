@@ -350,10 +350,14 @@ tour* create_children(){
 	
 	tour* children = new tour[group_size];
 	for (int i = 0; i < group_size; i += 2){
-		crossover(population[i], population[i+1], children, i);		
+		crossover(population[i], population[i+1], children, i);
+		int mutate_or_not = rand() % 100 + 1;
+		if(mutate_or_not < mutation_percentage){
+			mutate(children[i];
+		}
+		
 	}
-	
-return children;
+	return children;
 }
 
 
@@ -362,7 +366,7 @@ return children;
  * 	optimal tour of the mutated or original
  */
 
-tour mutate(tour t ){
+void mutate(tour t ){
 	int start;
 	int end;
 	do {
@@ -428,6 +432,10 @@ tour* create_new_generation(tour* population, tour* children, int population_siz
 		
 	}
 	generate_initial_population();
+	for(int j = 0; j < termination_step; j++){
+		tour* children = create_children();
+		create_new_generation(population, children, population_size, group_size); 
+	}
 }
 
 
