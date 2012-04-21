@@ -8,17 +8,6 @@
 #include <stdlib.h>
 
 
-int num_cities;
-int population_size;
-int greedy_selection_percentage;
-int num_closer_way_points;
-int group_size;
-float mutation_percent;
-int termination_step;
-int** distance_matrix;
-int ** closest_neighbors;
-tour* populationu	//Tour new_population[]
-
 struct tour{
 	int fitness;
 	int* tour;
@@ -33,30 +22,24 @@ struct city
 };
 
 
-/*
- * Tour run():  generates initial population, then runs through
- *  a for loop that goes through the genetic algorithm until the
- *  termination_step, return the best population
- */
-public void run(){
-	num_cities = 10;
-	population_size = 10;
-	greedy_selection_percentage = 80;
-	num_closer_way_points = 3;
-	group_size = 3;
-	mutation_percent = 0.7;
-	termination_step = 20;
-	distance_matrix = new int[num_cities][num_cities];
-	population = new population[population_size];
-	closest_neightbors = new int[num_cities][num_closer_way_points];
-	generate_distance_matrix();
-	generate_initial_population();
-}
+int num_cities = 1;
+int population_size = 0;
+int greedy_selection_percentage;
+int num_closer_way_points;
+int group_size;
+float mutation_percent;
+int termination_step;
+int** distance_matrix;
+int ** closest_neighbors;
+tour* population;	//Tour new_population[]
+
+
+
 
 /*
  * partition: used in quick_select
  */
-int partition(int* input, int p, int r)
+int array_partition(int* input, int p, int r)
 {
     int pivot = input[r];
 
@@ -83,9 +66,9 @@ int partition(int* input, int p, int r)
 /*
  * quickselect: finds the kth smallest value within the index of p and r of input
  */
-int quick_select(int* input, int p, int r, int k)
+int array_quick_select(int* input, int p, int r, int k)
 {
-	while(){
+	while(1){
 		if ( p == r )
 			return input[p];
 		int j = partition(input, p, r);
@@ -104,7 +87,7 @@ int quick_select(int* input, int p, int r, int k)
 /*
 *vector input version of partition
 */
-int partition(vector<input> input, int p, int r){
+int vector_partition(vector<input> input, int p, int r){
     int pivot = input[r];
 
     while ( p < r )
@@ -131,7 +114,7 @@ int partition(vector<input> input, int p, int r){
 /*
 *vector version of quickselect
 */
-int quick_select(vector<int> input, int p, int r, int k)
+int vector_quick_select(vector<int> input, int p, int r, int k)
 {
 	while(){
 		if ( p == r )
@@ -244,21 +227,25 @@ private tour generate_tour(int* linear_cities){
 }
 
 /*
+ * 	DEPRECATED, method's funcionality built into generate_tour
  * 	int greedy_selection(int city): greedy method for selecting next
  * 	waypoint in tour in generateTour
  */
 private int greedy_selection(int city){
-
+	return 0;
 }
 
 /*
+ * DEPRECATED, method's functionality build into generate_tour
  * int random_selection(int city): randomly pick 2 waypoints among
  *  list of cities (not including the city entered into the method,
  *  then pick the shorter cost of the two
  */
 private int random_selection(int city){
+	return 0;
 
 }
+
 
 /*
  * DEPRECATED, just uses quicksort 
@@ -270,25 +257,113 @@ private void select_group(int group_size){
 
 }
 
-/*
- * void sort_population(): sorts population so that the GA can
- * organize (quicksort)
- */
-void sort_population(){
-
-}
 
 
-tour* create_children(){
-}
+
 
 /*
  * 	Tour crossover(Tour parent1, Tour Parent2): Crossover of
  * 	 2 parents and then compute the length
  */
-tour crossover(tour parent1, tour parent2){
-
+void crossover(tour parent1, tour parent2, tour* children, int index){
+	tour child1;
+	tour child2;
+	
+	for (int k = 0; k < num_cities; k++) {
+		child1.tour[k] = -1;
+		child2.tour[k] = -1;
+	}
+	
+	child1.tour[0] = parent1.tour[0];
+	child2.tour[0] = parent2.tour[0];
+	int p2city = parent2.tour[0];
+	
+	while() {
+		bool visited = false;
+		for (int j = 0; j < num_cities; j++) {
+			if (child1.tour[j] == p2city) {
+				visited = true;
+			}
+		}
+		if (visited) {
+			break;
+		}
+		
+		//since p2city hasn't yet been visited by child1, find where p2city occurs in parent1 and insert it into child1 at the same index
+		for (int j = 0; j < num_cities; j++) {
+			if (parent1.tour[j] == p2city) {
+				child1.tour[j] = p2city;
+				child2.tour[j] = parent2.tour[j];
+				p2city = parent2.tour[j];
+			}
+		}		
+	}
+	
+	//fill in the -1 values in the children
+	for (int k = 0; k < num_cities; k++) {
+		if (child1.tour[k] == -1) {
+			child1.tour[k] = parent2.tour[k];
+			child2.tour[k] = parent1.tour[k];
+		}
+	}
+	
+	children[index] = child1;
+	children[index + 1] = child2;
+	
+	
 }
+
+
+
+/*
+ * void sort_population(): sorts population so that the GA can
+ * organize (quicksort)
+ */
+void sort_population(){
+	qsort_population(0, population_size - 1, population);
+}
+
+void qsort_population(int left, int right, tour* population) {
+	if (right > left) {
+		pivotIndex = rand() % (right - left + 1);
+		tour pivot = population[left + pivotIndex];
+		int pivotfitness = pivot.fitness;
+		population[left + pivotIndex] = population[right];
+		population[right] = pivot;
+		
+		int i = left - 1;
+		int j = right;
+		
+		do {
+			do { i++; } while (population[i].fitness < pivotfitness);
+			do { j--; } while (population[j].fitness > pivotfitness && j > left);
+			if (i < j) {
+				tour ith = population[i];
+	%.cu_o: $(srcdir)/%.cu			population[i] = population[j];
+				population[j] = ith;
+			}
+				
+		} while (i < j);
+		
+		population[right] = population[i];
+		population[i] = pivot;
+		qsort_population(left, i - 1);
+		qsort_population(i + 1, right);
+	}
+}
+
+
+
+tour* create_children(){
+	
+	tour* children = new tour[group_size]];
+	for (int i = 0; i < group_size; i += 2){
+		crossover(population[i], population[i+1], children, i);		
+	}
+	
+return children;
+}
+
 
 /*
  * 	Tour mutate(Tour t ): mutates the tour and returns the
@@ -296,8 +371,31 @@ tour crossover(tour parent1, tour parent2){
  */
 
 tour mutate(tour t ){
-
+	int start;
+	int end;
+	do {
+		start = rand() % num_cities;
+		end = rand() % num_cities;
+	} while ((start >= end) or (start == 0 and end == (num_cities - 1)));
+	
+	while (start < end) {
+		int temp = t.tour[start];
+		t.tour[start] = t.tour[end];
+		t.tour[end] = temp;
+		start++;
+		end--;
+	}
+	
 }
+
+
+
+
+
+
+
+
+
 
 /*
 * create_new_generation sorts the current population tour array and the children tour array, and then proceeds to replace
@@ -316,4 +414,26 @@ private tour* create_new_generation(tour* population, tour* children, int popula
 		children_index++;
 		population_index++;
 	}
+}
+
+
+
+/*
+ * Tour run():  generates initial population, then runs through
+ *  a for loop that goes through the genetic algorithm until the
+ *  termination_step, return the best population
+ */
+ void run(){
+	num_cities = 10;
+	population_size = 10;
+	greedy_selection_percentage = 80;
+	num_closer_way_points = 3;
+	group_size = 3;
+	mutation_percent = 0.7;
+	termination_step = 20;
+	distance_matrix = new int[num_cities][num_cities];
+	population = new population[population_size];
+	closest_neightbors = new int[num_cities][num_closer_way_points];
+	generate_distance_matrix();
+	generate_initial_population();
 }
