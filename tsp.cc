@@ -6,8 +6,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include "city.h"
-#include "tour.h"
+
 
 int num_cities;
 int populatoin_size;
@@ -19,6 +18,20 @@ int termination_step;
 int** distance_matrix;
 int ** closest_neighbors;
 tour* populationu	//Tour new_population[]
+
+struct tour{
+	int fitness;
+	int* tour;
+	int *tour_lengths;
+};
+
+struct city
+{
+	int cityNum;
+	int* closest_neighbors;
+
+};
+
 
 /*
  * Tour run():  generates initial population, then runs through
