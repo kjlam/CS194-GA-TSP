@@ -353,7 +353,7 @@ tour* create_children(){
 		crossover(population[i], population[i+1], children, i);
 		int mutate_or_not = rand() % 100 + 1;
 		if(mutate_or_not < mutation_percentage){
-			mutate(children[i];
+			mutate(children[i]);
 		}
 		
 	}
@@ -380,8 +380,7 @@ void mutate(tour t ){
 		t.tour[end] = temp;
 		start++;
 		end--;
-	}
-	
+	}	
 }
 
 
@@ -436,6 +435,21 @@ tour* create_new_generation(tour* population, tour* children, int population_siz
 		tour* children = create_children();
 		create_new_generation(population, children, population_size, group_size); 
 	}
+	print_best_tour();
+}
+
+/*
+ * print_best_tour: prints out the best tour along with its fitness, run at the end of 
+ * run_genetic_algorithm()
+ */
+void print_best_tour(){
+	qsort_population(0, num_cities - 1, population);
+	cout << "Best Tour Generated After " << termination_step << "generations \n";
+	cout << "Fitness: " << population[0].fitness << endl << "Tour \n";
+	for (int i = 0; i < num_cities; i++){
+		cout << population[0].tour[i];
+	}
+	
 }
 
 
