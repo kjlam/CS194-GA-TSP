@@ -8,16 +8,20 @@
 #include <stdlib.h>
 #include <vector> 
 #include "tsp.h"
+#include <fstream>
+#include <iostream>
+#include <string.h>
+#include <math.h>
 
 using std::vector;
-
+using namespace std;
 
 int num_cities = 1;
 int population_size = 0;
 int greedy_selection_percentage;
 int num_closer_way_points;
 int group_size;
-float mutation_percent;
+int mutation_percentage;
 int termination_step;
 int** distance_matrix;
 int ** closest_neighbors;
@@ -411,28 +415,90 @@ tour* create_new_generation(tour* population, tour* children, int population_siz
  *  a for loop that goes through the genetic algorithm until the
  *  termination_step, return the best population
  */
- void run(){
-	num_cities = 10;
-	population_size = 10;
-	greedy_selection_percentage = 80;
-	num_closer_way_points = 3;
-	group_size = 3;
-	mutation_percent = 0.7;
-	termination_step = 20;	
-	distance_matrix = new int*[num_cities];
+ void run_genetic_algorithm(){
+	/*distance_matrix = new int*[num_cities];
 	for(int i = 0; i < num_cities; i ++){
 		distance_matrix[i] = new int[num_cities];
 	}
+	*/
 	population = new tour[population_size];
 	closest_neighbors = new int*[num_cities];
 	for(int i = 0; i < num_cities; i ++){
 		closest_neighbors[i] = new int[num_closer_way_points];
 		
 	}
-	generate_distance_matrix();
 	generate_initial_population();
 }
 
-int main(){
-	return 0;
+
+/*
+ * program requires all these parameters
+ * program_name tsp_file num_cities population_size greedy_selection_percentage num_closer_way_points group_size
+ * mutation_percentage termination_step
+ */
+int main(int argc, char** argv){
+	if(argc != 9){
+		cout << "not enough arguments\n" << " program requires 9 arguments "
+			<< "program_name tsp_file num_cities population_size greedy_selection_percentage" 
+			<< "num_closer_way_points group_size mutation_percentage termination_step";
+		return 0;
+		
+	}
+	/*
+	num_cities = 10;
+	population_size = 10;
+	greedy_selection_percentage = 80;
+	num_closer_way_points = 3;
+	group_size = 3;
+	mutation_percentage = 70;
+	termination_step = 20;	
+	*/
+	
+	char* filename = argv[1];
+	const char * num_cities_string = argv[2];
+	num_cities = atoi(num_cities_string);
+	population_size = atoi(argv[3]);
+	greedy_selection_percentage = atoi(argv[4]);
+	num_closer_way_points = atoi(argv[5]);
+	group_size = atoi(argv[6]);
+	mutation_percentage = atoi(argv[7]);
+	termination_step = atoi(argv[8]);
+	
+	
+	float distance_matrix[num_cities][num_cities];
+	coordinates cities[num_cities];
+	
+	char line[256];
+	ifstream myfile;
+	myfile.open(filename);
+	
+	const char * lastline = "NODE_COORD_SECTION";
+	while (1) {
+		myfile.getline(line, 256);
+		//cout << "asdf\n";
+		if (!strcmp(line, lastline)) {
+			break;
+		}
+	}
+	
+	for (int i = 0; i < num_cities; i++) {
+		myfile.getline(line, 256);
+		char * pch;
+		pch = strtok(line, " ");
+		pch = strtok(NULL, " ");
+		cities[i].x = atoi(pch);
+		pch = strtok(NULL, " ");
+		cities[i].y = atoi(pch);
+	}
+		
+	for (int i = 0; i < num_cities; i++) {
+		for (int j = 0; j < num_cities; j++) {
+			distance_matrix[i][j] = sqrt(pow(cities[i].x - cities[j].x,2) + pow(cities[i].y - cities[j].y,2));
+			//cout << i << j << " " << distance_matrix[i][j] << "\n";
+		}
+	}
+	
+	myfile.close();
+	
+	run_genetic_algorithm();
 }
