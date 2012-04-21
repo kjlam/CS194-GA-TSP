@@ -6,20 +6,10 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <vector> 
+#include "tsp.h"
 
-
-struct tour{
-	int fitness;
-	int* tour;
-	int *tour_lengths;
-};
-
-struct city
-{
-	int cityNum;
-	int* closest_neighbors;
-
-};
+using std::vector;
 
 
 int num_cities = 1;
@@ -71,7 +61,7 @@ int array_quick_select(int* input, int p, int r, int k)
 	while(1){
 		if ( p == r )
 			return input[p];
-		int j = partition(input, p, r);
+		int j = array_partition(input, p, r);
 		int length = j - p + 1;
 		if ( length == k )
 			return input[j];
@@ -87,7 +77,7 @@ int array_quick_select(int* input, int p, int r, int k)
 /*
 *vector input version of partition
 */
-int vector_partition(vector<input> input, int p, int r){
+int vector_partition(vector<int> input, int p, int r){
     int pivot = input[r];
 
     while ( p < r )
@@ -116,10 +106,10 @@ int vector_partition(vector<input> input, int p, int r){
 */
 int vector_quick_select(vector<int> input, int p, int r, int k)
 {
-	while(){
+	while(1){
 		if ( p == r )
 			return input[p];
-		int j = partition(input, p, r);
+		int j = vector_partition(input, p, r);
 		int length = j - p + 1;
 		if ( length == k )
 			return input[j];
@@ -136,17 +126,15 @@ int vector_quick_select(vector<int> input, int p, int r, int k)
 /*
  * generates a distance matrix in distance_matrix
  */
-public generate_distance_matrix(){
-	for(int i = 0; i < population_size; i++){
-		
-	}
+ void generate_distance_matrix(){
+	//TODO
 
 }
 /*
  * 	void generate_initial_population():  generates population by
  * 	calling generate tour many times,
  */
-public void generate_initial_population(){
+void generate_initial_population(){
 	int *linear_cities = new int[num_cities];
 	for(int i = 0; i < num_cities; i++){
 		linear_cities[i] = i;
@@ -156,21 +144,22 @@ public void generate_initial_population(){
 		
 	}
 }
-
+ 
 /*
  * find_n_closest_neighbors finds the n closest neighbors for all the cities
  * and place them in closest_neighbors 2d array
  */
-private void generate_closest_neighbors(){
+ void generate_closest_neighbors(){
 	for(int i = 0; i < population_size; i++){
 		int closest_index = 0;
 		//num_closer_way_points + 1 used as quick_select will pick out i as well, since distance is 0 with itself
-	    int m = quick_select(distance_matrix[i], 0, population_size - 1, num_closer_way_points + 1);
+	    int m = array_quick_select(distance_matrix[i], 0, population_size - 1, num_closer_way_points + 1);
+	    
 	    closest_neighbors[i][closest_index] = m;
 	    closest_index++;
 		for(int k = 0; k < population_size; k++){
 			if(distance_matrix[i][k] < m && distance_matrix[i][k] != 0 ){
-				closest_neighbors]i][closest_index] = distance_matrix[i][k];
+				closest_neighbors[i][closest_index] = distance_matrix[i][k];
 				closest_index++;
 				if(closest_index == num_closer_way_points){
 					return;
@@ -187,7 +176,7 @@ private void generate_closest_neighbors(){
 	paper had 2 methods for picking the next waypoint in a tour that
 	were influenced by the greedy_selection_percentage
  */
-private tour generate_tour(int* linear_cities){
+ tour generate_tour(int* linear_cities){
 	tour new_tour;
 	new_tour.fitness = 0;
 	new_tour.tour = new int[num_cities];
@@ -195,22 +184,21 @@ private tour generate_tour(int* linear_cities){
 	vector<int> available_cities(linear_cities, linear_cities + sizeof(linear_cities)/sizeof(int));
 	new_tour.tour[0] = 0;
 	int current_city = 0;
+	available_cities.erase(available_cities.begin());
+	int next_city = 0;
 	for(int i = 1; i < num_cities; i ++){
-		if(i == 0){
-			available_cities.erase(
-		}
-		int selection = rand() % num_cities;
+		int selection = rand() % 100;	
 		//choose greedily 
-		if(selection < greedy_selection_percentage && available_cities.size > num_closer_way_points){
+		if((selection < greedy_selection_percentage) and (available_cities.size() > num_closer_way_points)){
 			//TODO: check that the ranodm selection producing desired values
 			int random_closest= rand() % (num_closer_way_points); 
-			int next_city = quickselect(available_cities, 0, availabe_cities.size() - 1, random_closest);
+			next_city = vector_quick_select(available_cities, 0, available_cities.size() - 1, random_closest);
 			
 		}else // choose next city randomly 
 		{
-			int next_city = rand() % available_cities.size();
+			next_city = rand() % available_cities.size();
 		}
-		for(int j = 0; j < available_cities.size; j++){
+		for(int j = 0; j < available_cities.size(); j++){
 			if(available_cities[j] == next_city){
 				available_cities.erase(available_cities.begin() + j);
 				break;
@@ -221,9 +209,9 @@ private tour generate_tour(int* linear_cities){
 		new_tour.fitness += distance_matrix[current_city][next_city];
 		current_city = next_city;
 	}
-	new_tour.tour_length[i] = distance_matrix[current_city][0];
+	new_tour.tour_lengths[num_cities-1] = distance_matrix[current_city][0];
 	new_tour.fitness += distance_matrix[current_city][next_city];
-	return tour;
+	return new_tour;
 }
 
 /*
@@ -231,7 +219,7 @@ private tour generate_tour(int* linear_cities){
  * 	int greedy_selection(int city): greedy method for selecting next
  * 	waypoint in tour in generateTour
  */
-private int greedy_selection(int city){
+ int greedy_selection(int city){
 	return 0;
 }
 
@@ -241,7 +229,7 @@ private int greedy_selection(int city){
  *  list of cities (not including the city entered into the method,
  *  then pick the shorter cost of the two
  */
-private int random_selection(int city){
+ int random_selection(int city){
 	return 0;
 
 }
@@ -253,7 +241,7 @@ private int random_selection(int city){
  * 	 group_size of the most optimal tours (run sort_population first
  * 	 to figure out best tours)
  */
-private void select_group(int group_size){
+ void select_group(int group_size){
 
 }
 
@@ -278,7 +266,7 @@ void crossover(tour parent1, tour parent2, tour* children, int index){
 	child2.tour[0] = parent2.tour[0];
 	int p2city = parent2.tour[0];
 	
-	while() {
+	while(1) {
 		bool visited = false;
 		for (int j = 0; j < num_cities; j++) {
 			if (child1.tour[j] == p2city) {
@@ -325,7 +313,7 @@ void sort_population(){
 
 void qsort_population(int left, int right, tour* population) {
 	if (right > left) {
-		pivotIndex = rand() % (right - left + 1);
+		int pivotIndex = rand() % (right - left + 1);
 		tour pivot = population[left + pivotIndex];
 		int pivotfitness = pivot.fitness;
 		population[left + pivotIndex] = population[right];
@@ -339,7 +327,7 @@ void qsort_population(int left, int right, tour* population) {
 			do { j--; } while (population[j].fitness > pivotfitness && j > left);
 			if (i < j) {
 				tour ith = population[i];
-	%.cu_o: $(srcdir)/%.cu			population[i] = population[j];
+				population[i] = population[j];
 				population[j] = ith;
 			}
 				
@@ -347,8 +335,8 @@ void qsort_population(int left, int right, tour* population) {
 		
 		population[right] = population[i];
 		population[i] = pivot;
-		qsort_population(left, i - 1);
-		qsort_population(i + 1, right);
+		qsort_population(left, i - 1, population);
+		qsort_population(i + 1, right, population);
 	}
 }
 
@@ -356,7 +344,7 @@ void qsort_population(int left, int right, tour* population) {
 
 tour* create_children(){
 	
-	tour* children = new tour[group_size]];
+	tour* children = new tour[group_size];
 	for (int i = 0; i < group_size; i += 2){
 		crossover(population[i], population[i+1], children, i);		
 	}
@@ -401,7 +389,7 @@ tour mutate(tour t ){
 * create_new_generation sorts the current population tour array and the children tour array, and then proceeds to replace
 the group_size weakest tours in the population array with the children if the fitness of the child is higher
 */
-private tour* create_new_generation(tour* population, tour* children, int population_size, int group_size){
+tour* create_new_generation(tour* population, tour* children, int population_size, int group_size){
 	qsort_population(0, population_size -1, population);
 	qsort_population(0, group_size -1, children);
 	int population_index = population_size - group_size;
@@ -430,10 +418,21 @@ private tour* create_new_generation(tour* population, tour* children, int popula
 	num_closer_way_points = 3;
 	group_size = 3;
 	mutation_percent = 0.7;
-	termination_step = 20;
-	distance_matrix = new int[num_cities][num_cities];
-	population = new population[population_size];
-	closest_neightbors = new int[num_cities][num_closer_way_points];
+	termination_step = 20;	
+	distance_matrix = new int*[num_cities];
+	for(int i = 0; i < num_cities; i ++){
+		distance_matrix[i] = new int[num_cities];
+	}
+	population = new tour[population_size];
+	closest_neighbors = new int*[num_cities];
+	for(int i = 0; i < num_cities; i ++){
+		closest_neighbors[i] = new int[num_closer_way_points];
+		
+	}
 	generate_distance_matrix();
 	generate_initial_population();
+}
+
+int main(){
+	return 0;
 }
