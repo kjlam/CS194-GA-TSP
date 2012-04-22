@@ -189,6 +189,8 @@ void generate_initial_population(){
 	new_tour.tour = new int[num_cities];
 	new_tour.tour_lengths = new int[num_cities];
 	
+	cout << "192 length of linear_cities " << sizeof(linear_cities)/sizeof(int) << endl;
+	cout << "193 num_cities " << num_cities << endl;
 	//vector of available_cities, cities will get deleted from this resizable array as they get added to the tour
 	vector<int> available_cities(linear_cities, linear_cities + sizeof(linear_cities)/sizeof(int));
 	
@@ -224,13 +226,18 @@ void generate_initial_population(){
 		}
 		//loop through the available_cities vector until u found the city value selected to be added
 		//delete the value from the available_cities vector
+		cout << "227 next city chosen" << endl;
 		for(int j = 0; j < available_cities.size(); j++){
+			cout << "available city index: " << j << " value: " << available_cities[j] << endl;;
 			if(available_cities[j] == next_city){
 				available_cities.erase(available_cities.begin() + j);
+				cout << "231 break statement reached in finding next city in list of available_cities" << endl; 
 				break;
 			}
 		}
 		
+		
+		cout << "236 next city erased from list of available_cities";
 		// add the city to the tour, calculate the fitness it adds, and add the tour_length as well 
 		new_tour.tour[i] = next_city;
 		new_tour.tour_lengths[i-1] = distance_matrix[current_city][next_city];
