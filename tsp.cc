@@ -221,7 +221,7 @@ void generate_tour(int* linear_cities, int index){
 		}else // choose next city randomly
 	{
 		//cout << "city chosen randomly" << endl;
-		//srand ( time(NULL) );
+		srand ( time(NULL) );
 		int city_index = rand() % available_cities.size();
 		next_city = available_cities[city_index];
 	}
@@ -426,6 +426,7 @@ void mutate(tour* t ){
 	do {
 		srand ( time(NULL) );
 		start = rand() % num_cities;
+		srand (time(NULL));
 		end = rand() % num_cities;
 	} while ((start >= end) or (start == 0 and end == (num_cities - 1)));
 	
