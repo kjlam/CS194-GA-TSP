@@ -209,7 +209,7 @@ void generate_tour(int* linear_cities, int index){
 	//loop num_cities times to form the tour
 	for(int i = 1; i < num_cities; i++){
 		int selection = (rand() % 100) + 1;
-		cout << "213 selection percent " << selection << endl;
+		//cout << "213 selection percent " << selection << endl;
 		//choose greedily
 		//if greedy strategy selected and the number of cities available is greater than the number of closer way points
 		//perform the greedy strategy
@@ -220,9 +220,9 @@ void generate_tour(int* linear_cities, int index){
 			next_city = vector_quick_select(available_cities, 0, available_cities.size() - 1, random_closest);
 		}else // choose next city randomly
 		{
-		cout << "224 city chosen randomly" << endl;
+		//cout << "224 city chosen randomly" << endl;
 		int city_index = rand() % available_cities.size();
-		cout << "227 next city " << city_index << endl;
+		//cout << "227 next city " << city_index << endl;
 		next_city = available_cities[city_index];
 		}
 		//loop through the available_cities vector until u found the city value selected to be added
