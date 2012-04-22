@@ -31,7 +31,7 @@ void generate_closest_neighbors();
  void sort_population();
  void qsort_population(int left, int right, tour* population) ;
  tour* create_children();
- void mutate(tour t );
+ void mutate(tour* t );
  tour* create_new_generation(tour* population, tour* children, int population_size, int group_size);
  void print_best_tour();
   void run();
