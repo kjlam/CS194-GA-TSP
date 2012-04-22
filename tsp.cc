@@ -200,20 +200,26 @@ void generate_initial_population(){
 	available_cities.erase(available_cities.begin());
 	int next_city = 0;
 	
+	cout << "203 reached looping cities to form tour" << endl;
 	//loop num_cities times to form the tour 
 	for(int i = 1; i < num_cities; i ++){
+		srand ( time(NULL) );
 		int selection = rand() % 100;	
 		//choose greedily 
-		
+		cout << "208 selection random # " << selection << endl; 
 		//if greedy strategy selected and the number of cities available is greater than the number of closer way points
 		//perform the greedy strategy
 		if((selection < greedy_selection_percentage) and (available_cities.size() > num_closer_way_points)){
 			//TODO: check that the ranodm selection producing desired values
-			int random_closest= rand() % (num_closer_way_points); 
+			cout << "213 greedy selection algorithm selected" << endl;
+			srand ( time(NULL) );
+			int random_closest= rand() % num_closer_way_points; 
+			cout << "215 before quick_select" << endl; 
 			next_city = vector_quick_select(available_cities, 0, available_cities.size() - 1, random_closest);
-			
 		}else // choose next city randomly 
 		{
+			cout << "218 random selection algorithm selected" << endl;
+			srand ( time(NULL) );
 			next_city = rand() % available_cities.size();
 		}
 		//loop through the available_cities vector until u found the city value selected to be added
@@ -337,6 +343,7 @@ void sort_population(){
 
 void qsort_population(int left, int right, tour* population) {
 	if (right > left) {
+		srand ( time(NULL) );
 		int pivotIndex = rand() % (right - left + 1);
 		tour pivot = population[left + pivotIndex];
 		int pivotfitness = pivot.fitness;
@@ -371,6 +378,7 @@ tour* create_children(){
 	tour* children = new tour[group_size];
 	for (int i = 0; i < group_size; i += 2){
 		crossover(population[i], population[i+1], children, i);
+		srand ( time(NULL) );
 		int mutate_or_not = rand() % 100 + 1;
 		if(mutate_or_not < mutation_percentage){
 			mutate(children[i]);
@@ -390,6 +398,7 @@ void mutate(tour t ){
 	int start;
 	int end;
 	do {
+		srand ( time(NULL) );
 		start = rand() % num_cities;
 		end = rand() % num_cities;
 	} while ((start >= end) or (start == 0 and end == (num_cities - 1)));
