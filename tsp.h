@@ -3,9 +3,9 @@
 
 using std::vector;
 struct tour{
-int fitness;
+float fitness;
 int* tour;
-int *tour_lengths;
+float *tour_lengths;
 };
 
 struct city

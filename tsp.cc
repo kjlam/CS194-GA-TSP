@@ -13,7 +13,7 @@
 #include <iostream>
 #include <string.h>
 #include <math.h>
-
+#include <time.h>
 using std::vector;
 using namespace std;
 
@@ -25,7 +25,7 @@ int group_size;
 int mutation_percentage;
 int termination_step;
 //int** distance_matrix;
-int** distance_matrix;
+float** distance_matrix;
 int ** closest_neighbors;
 tour* population; //Tour new_population[]
 
@@ -35,9 +35,9 @@ tour* population; //Tour new_population[]
 /*
  * partition: used in quick_select
  */
-int array_partition(int* input, int p, int r)
+int array_partition(float* input, int p, int r)
 {
-	int pivot = input[r];
+	float pivot = input[r];
 	
 	while ( p < r )
 	{
@@ -62,7 +62,7 @@ int array_partition(int* input, int p, int r)
 /*
  * quickselect: finds the kth smallest value within the index of p and r of input
  */
-int array_quick_select(int* input, int p, int r, int k)
+int array_quick_select(float* input, int p, int r, int k)
 {
 	while(1){
 		if ( p == r )
@@ -84,7 +84,7 @@ int array_quick_select(int* input, int p, int r, int k)
  * vector input version of partition
  */
 int vector_partition(vector<int> input, int p, int r){
-	int pivot = input[r];
+	float pivot = input[r];
 	
 	while ( p < r )
 	{
@@ -159,13 +159,14 @@ void generate_initial_population(){
 
 /*
  * find_n_closest_neighbors finds the n closest neighbors for all the cities
- * and place them in closest_neighbors 2d array
+ * and place them in closest_neighbors 2d array NOT WORKING AS INTENDED, QUICK_SELECT 
+ * RETURNS VALUE NOT INDEX NEED TO FIND INDEX VALUE
  */
 void generate_closest_neighbors(){
 	for(int i = 0; i < population_size; i++){
 		int closest_index = 0;
 		//num_closer_way_points + 1 used as quick_select will pick out i as well, since distance is 0 with itself
-		int m = array_quick_select(distance_matrix[i], 0, population_size - 1, num_closer_way_points + 1);
+		float m = array_quick_select(distance_matrix[i], 0, population_size - 1, num_closer_way_points + 1);
 		
 		closest_neighbors[i][closest_index] = m;
 		closest_index++;
@@ -192,7 +193,7 @@ void generate_tour(int* linear_cities, int index){
 	tour new_tour;
 	new_tour.fitness = 0;
 	new_tour.tour = new int[num_cities];
-	new_tour.tour_lengths = new int[num_cities];
+	new_tour.tour_lengths = new float[num_cities];
 	//cout << "tour number: " << index << endl;
 	//vector of available_cities, cities will get deleted from this resizable array as they get added to the tour
 	//vector<int> available_cities(linear_cities, linear_cities + sizeof(linear_cities)/sizeof(int));
@@ -207,40 +208,39 @@ void generate_tour(int* linear_cities, int index){
 	
 	//loop num_cities times to form the tour
 	for(int i = 1; i < num_cities; i++){
-		srand ( time(NULL) );
 		int selection = (rand() % 100) + 1;
+		cout << "213 selection percent " << selection << endl;
 		//choose greedily
 		//if greedy strategy selected and the number of cities available is greater than the number of closer way points
 		//perform the greedy strategy
 		if((selection < greedy_selection_percentage) and (available_cities.size() > num_closer_way_points)){
-			//cout << "greedy selection" << endl;
+			//cout << "217 greedy selection" << endl;
 			//TODO: check that the ranodm selection producing desired values
-			srand ( time(NULL) );
 			int random_closest= rand() % num_closer_way_points;
 			next_city = vector_quick_select(available_cities, 0, available_cities.size() - 1, random_closest);
 		}else // choose next city randomly
-	{
-		//cout << "city chosen randomly" << endl;
-		srand ( time(NULL) );
+		{
+		cout << "224 city chosen randomly" << endl;
 		int city_index = rand() % available_cities.size();
+		cout << "227 next city " << city_index << endl;
 		next_city = available_cities[city_index];
-	}
-	//loop through the available_cities vector until u found the city value selected to be added
-	//delete the value from the available_cities vector
-	for(int j = 0; j < available_cities.size(); j++){
-		if(available_cities[j] == next_city){
-			available_cities.erase(available_cities.begin() + j);
-			break;            
 		}
-	}
-	
-	// add the city to the tour, calculate the fitness it adds, and add the tour_length as well
-	
-	//cout << next_city << endl;
-	new_tour.tour[i] = next_city;
-	new_tour.tour_lengths[i-1] = distance_matrix[current_city][next_city];
-	new_tour.fitness += distance_matrix[current_city][next_city];
-	current_city = next_city;
+		//loop through the available_cities vector until u found the city value selected to be added
+		//delete the value from the available_cities vector
+		for(int j = 0; j < available_cities.size(); j++){
+			if(available_cities[j] == next_city){
+				available_cities.erase(available_cities.begin() + j);
+				break;            
+			}
+		}
+		
+		// add the city to the tour, calculate the fitness it adds, and add the tour_length as well
+		
+		//cout << next_city << endl;
+		new_tour.tour[i] = next_city;
+		new_tour.tour_lengths[i-1] = distance_matrix[current_city][next_city];
+		new_tour.fitness += distance_matrix[current_city][next_city];
+		current_city = next_city;
 	}
 	
 	//compute the final fitness and tour_length connecting the final city to the first city
@@ -282,6 +282,14 @@ void select_group(int group_size){
 }
 
 
+//given a tour with initialized tour array, returns fitness of tour
+int compute_fitness(tour t){
+	int fitness = 0;
+	for(int i = 0; i < num_cities -1; i ++){
+		fitness = distance_matrix[t.tour[i]][t.tour[i+1]];
+	}
+	return fitness;
+}
 
 
 
@@ -294,10 +302,10 @@ void crossover(tour parent1, tour parent2, tour* children, int index){
 	tour child2;
 	child1.fitness = 0;
 	child1.tour = new int[num_cities];
-	child1.tour_lengths = new int[num_cities];
+	child1.tour_lengths = new float[num_cities];
 	child2.fitness = 0;
 	child2.tour = new int[num_cities];
-	child2.tour_lengths = new int[num_cities];
+	child2.tour_lengths = new float[num_cities];
 	
 	for (int k = 0; k < num_cities; k++) {
 		child1.tour[k] = -1;
@@ -338,10 +346,10 @@ void crossover(tour parent1, tour parent2, tour* children, int index){
 			child2.tour[k] = parent1.tour[k];
 		}
 	}
-	
+	child1.fitness = compute_fitness(child1);
+	child2.fitness = compute_fitness(child2);
 	children[index] = child1;
 	children[index + 1] = child2;
-	
 	
 }
 
@@ -357,7 +365,6 @@ void sort_population(){
 
 void qsort_population(int left, int right, tour* population) {
 	if (right > left) {
-		srand ( time(NULL) );
 		int pivotIndex = rand() % (right - left + 1);
 		tour pivot = population[left + pivotIndex];
 		int pivotfitness = pivot.fitness;
@@ -388,7 +395,7 @@ void qsort_population(int left, int right, tour* population) {
 
 
 tour* create_children(){
-	cout << "population before sorting\n";
+	/*cout << "population before sorting\n";
 	for (int i = 0; i < population_size; i++) {
 		cout << population[i].fitness << " ";
 	}
@@ -400,16 +407,15 @@ tour* create_children(){
 	}
 	cout << endl;
 	cout << "\n" << endl;  
-	
+	*/
 	tour* children = new tour[group_size];
 	for (int i = 0; i < group_size; i += 2){
 		crossover(population[i], population[group_size-i], children, i);
-		srand ( time(NULL) );
 		int mutate_or_not = rand() % 100 + 1;
 		if(mutate_or_not < mutation_percentage){
 			mutate(&children[i]);
 		}
-		
+		children[i].fitness = compute_fitness(children[i]);
 	}
 	return children;
 }
@@ -424,9 +430,7 @@ void mutate(tour* t ){
 	int start;
 	int end;
 	do {
-		srand ( time(NULL) );
 		start = rand() % num_cities;
-		srand (time(NULL));
 		end = rand() % num_cities;
 	} while ((start >= end) or (start == 0 and end == (num_cities - 1)));
 	
@@ -486,7 +490,6 @@ void run_genetic_algorithm(){
 	 }
 	 */
 	
-	srand ( time(NULL) );
 	population = new tour[population_size];
 	closest_neighbors = new int*[num_cities];
 	for(int i = 0; i < num_cities; i ++){
@@ -552,10 +555,12 @@ int main(int argc, char** argv){
 	group_size = atoi(argv[6]);
 	mutation_percentage = atoi(argv[7]);
 	termination_step = atoi(argv[8]);
-	distance_matrix = new int*[num_cities];
+	distance_matrix = new float*[num_cities];
 	for (int i = 0; i< num_cities; i++) {
-		distance_matrix[i] = new int[num_cities];
+		distance_matrix[i] = new float[num_cities];
 	}
+	//initialize the random seed, ONLY CALL ONCE in program 
+	srand(time(NULL));
 	
 	coordinates cities[num_cities];
 	
