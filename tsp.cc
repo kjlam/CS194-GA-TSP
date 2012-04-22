@@ -1,4 +1,5 @@
 /*
+ * pet
  * TSP.cc
  *
  *  Created on: Apr 17, 2012
@@ -143,7 +144,9 @@ void generate_initial_population(){
 	for(int i = 0; i < num_cities; i++){
 		linear_cities[i] = i;
 	}
+	cout << "147 before generate_tour loop" << endl;
 	for(int j =0; j < population_size; j++){
+		cout << "149 generate tour # " << j << endl;
 		population[j] = generate_tour(linear_cities);
 		
 	}
@@ -185,14 +188,25 @@ void generate_initial_population(){
 	new_tour.fitness = 0;
 	new_tour.tour = new int[num_cities];
 	new_tour.tour_lengths = new int[num_cities];
+	
+	//vector of available_cities, cities will get deleted from this resizable array as they get added to the tour
 	vector<int> available_cities(linear_cities, linear_cities + sizeof(linear_cities)/sizeof(int));
+	
+	
+	//first city in tour will always be the first city (doesn't matter where we start as tours will loop through all cities
+	
 	new_tour.tour[0] = 0;
 	int current_city = 0;
 	available_cities.erase(available_cities.begin());
 	int next_city = 0;
+	
+	//loop num_cities times to form the tour 
 	for(int i = 1; i < num_cities; i ++){
 		int selection = rand() % 100;	
 		//choose greedily 
+		
+		//if greedy strategy selected and the number of cities available is greater than the number of closer way points
+		//perform the greedy strategy
 		if((selection < greedy_selection_percentage) and (available_cities.size() > num_closer_way_points)){
 			//TODO: check that the ranodm selection producing desired values
 			int random_closest= rand() % (num_closer_way_points); 
@@ -202,17 +216,23 @@ void generate_initial_population(){
 		{
 			next_city = rand() % available_cities.size();
 		}
+		//loop through the available_cities vector until u found the city value selected to be added
+		//delete the value from the available_cities vector
 		for(int j = 0; j < available_cities.size(); j++){
 			if(available_cities[j] == next_city){
 				available_cities.erase(available_cities.begin() + j);
 				break;
 			}
 		}
+		
+		// add the city to the tour, calculate the fitness it adds, and add the tour_length as well 
 		new_tour.tour[i] = next_city;
 		new_tour.tour_lengths[i-1] = distance_matrix[current_city][next_city];
 		new_tour.fitness += distance_matrix[current_city][next_city];
 		current_city = next_city;
 	}
+	
+	//compute the final fitness and tour_length connecting the final city to the first city 
 	new_tour.tour_lengths[num_cities-1] = distance_matrix[current_city][0];
 	new_tour.fitness += distance_matrix[current_city][next_city];
 	return new_tour;
@@ -430,7 +450,9 @@ tour* create_new_generation(tour* population, tour* children, int population_siz
 		closest_neighbors[i] = new int[num_closer_way_points];
 		
 	}
+	cout << "434 before initial population generation" << endl;
 	generate_initial_population();
+	cout << "436 after initial population generation" << endl;
 	for(int j = 0; j < termination_step; j++){
 		tour* children = create_children();
 		create_new_generation(population, children, population_size, group_size); 
@@ -522,5 +544,6 @@ int main(int argc, char** argv){
 	
 	myfile.close();
 	
+	cout << "file parsing reached" << endl;
 	run_genetic_algorithm();
 }
