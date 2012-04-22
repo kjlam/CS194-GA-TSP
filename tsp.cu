@@ -415,6 +415,7 @@ tour* create_children(){
 		int mutate_or_not = rand() % 100 + 1;
 		if(mutate_or_not < mutation_percentage){
 			mutate(&children[i]);
+			mutate(&children[i+1]);
 		}
 		children[i].fitness = compute_fitness(children[i]);
 	}
