@@ -25,7 +25,7 @@ int array_quick_select(int* input, int p, int r, int k);
 int vector_partition(vector<int> input, int p, int r);
 int vector_quick_select(vector<int> input, int p, int r, int k);
 void generate_initial_population();
-void generate_closest_neighbors();
+///oid generate_closest_neighbors();
  void generate_tour(int* linear_cities, int index);
  void crossover(tour parent1, tour parent2, tour* children, int index);
  void sort_population();

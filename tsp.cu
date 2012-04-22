@@ -14,6 +14,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+
 using std::vector;
 using namespace std;
 
@@ -25,7 +26,7 @@ int group_size;
 int mutation_percentage;
 int termination_step;
 //int** distance_matrix;
-float** distance_matrix;
+float* distance_matrix;
 int ** closest_neighbors;
 tour* population; //Tour new_population[]
 
@@ -158,10 +159,10 @@ void generate_initial_population(){
 }
 
 /*
- * find_n_closest_neighbors finds the n closest neighbors for all the cities
+ * DEPRECATED find_n_closest_neighbors finds the n closest neighbors for all the cities
  * and place them in closest_neighbors 2d array NOT WORKING AS INTENDED, QUICK_SELECT 
  * RETURNS VALUE NOT INDEX NEED TO FIND INDEX VALUE
- */
+ *
 void generate_closest_neighbors(){
 	for(int i = 0; i < population_size; i++){
 		int closest_index = 0;
@@ -181,7 +182,7 @@ void generate_closest_neighbors(){
 		}
 	}
 }
-
+*/
 
 
 /*
@@ -238,14 +239,14 @@ void generate_tour(int* linear_cities, int index){
 		
 		//cout << next_city << endl;
 		new_tour.tour[i] = next_city;
-		new_tour.tour_lengths[i-1] = distance_matrix[current_city][next_city];
-		new_tour.fitness += distance_matrix[current_city][next_city];
+		new_tour.tour_lengths[i-1] = distance_matrix[current_city*num_cities + next_city];
+		new_tour.fitness += distance_matrix[current_city * num_cities + next_city];
 		current_city = next_city;
 	}
 	
 	//compute the final fitness and tour_length connecting the final city to the first city
-	new_tour.tour_lengths[num_cities-1] = distance_matrix[current_city][0];
-	new_tour.fitness += distance_matrix[current_city][next_city];
+	new_tour.tour_lengths[num_cities-1] = distance_matrix[current_city * num_cities + 0];
+	new_tour.fitness += distance_matrix[current_city * num_cities + next_city];
 	cout << endl;
 	population[index] = new_tour;
 }
@@ -286,7 +287,7 @@ void select_group(int group_size){
 int compute_fitness(tour t){
 	int fitness = 0;
 	for(int i = 0; i < num_cities -1; i ++){
-		fitness = distance_matrix[t.tour[i]][t.tour[i+1]];
+		fitness = distance_matrix[t.tour[i] * num_cities + t.tour[i+1]];
 	}
 	return fitness;
 }
@@ -555,10 +556,12 @@ int main(int argc, char** argv){
 	group_size = atoi(argv[6]);
 	mutation_percentage = atoi(argv[7]);
 	termination_step = atoi(argv[8]);
-	distance_matrix = new float*[num_cities];
-	for (int i = 0; i< num_cities; i++) {
+	distance_matrix = new float[num_cities * num_cities];
+	/*for loop no longe rneeded as changed distance_matrix to 1d array
+	 * for (int i = 0; i< num_cities; i++) {
 		distance_matrix[i] = new float[num_cities];
 	}
+	*/
 	//initialize the random seed, ONLY CALL ONCE in program 
 	srand(time(NULL));
 	
@@ -589,7 +592,7 @@ int main(int argc, char** argv){
 	
 	for (int i = 0; i < num_cities; i++) {
 		for (int j = 0; j < num_cities; j++) {
-			distance_matrix[i][j] = sqrt(pow(cities[i].x - cities[j].x,2) + pow(cities[i].y - cities[j].y,2));
+			distance_matrix[i * num_cities + j] = sqrt(pow(cities[i].x - cities[j].x,2) + pow(cities[i].y - cities[j].y,2));
 		}
 	}
 	
@@ -597,8 +600,10 @@ int main(int argc, char** argv){
 	
 	cout << "file parsing reached" << endl;
 	run_genetic_algorithm();
+	/* no longer needed as distance_matrix is a 1d array
 	for (int i = 0; i < num_cities; i++) {
 		delete[] distance_matrix[i];
 	}
+	*/
 	delete[] distance_matrix;
 }
