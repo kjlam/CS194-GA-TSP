@@ -18,6 +18,9 @@
 #include <thrust/host_vector.h>
 #include <thrust/transform.h>
 #include <thrust/copy.h>
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/for_each.h>
+#include <thrust/sort.h>
 using std::vector;
 using namespace std;
 
@@ -205,7 +208,7 @@ void generate_tour(int* linear_cities, int index){
 	
 	//first city in tour will always be the first city (doesn't matter where we start as tours will loop through all cities
 	
-	new_tour.tour[0] = 0;
+	new_tour.path[0] = 0;
 	int current_city = 0;
 	available_cities.erase(available_cities.begin());
 	int next_city = 0;
@@ -241,7 +244,7 @@ void generate_tour(int* linear_cities, int index){
 		// add the city to the tour, calculate the fitness it adds, and add the tour_length as well
 		
 		//cout << next_city << endl;
-		new_tour.tour[i] = next_city;
+		new_tour.path[i] = next_city;
 		//new_tour.tour_lengths[i-1] = distance_matrix[current_city*num_cities + next_city];
 		new_tour.fitness += distance_matrix[current_city * num_cities + next_city];
 		current_city = next_city;
@@ -290,9 +293,9 @@ void select_group(int group_size){
 float compute_fitness(tour t){
 	float fitness = 0;
 	for(int i = 0; i < num_cities -1; i ++){
-		fitness += distance_matrix[t.tour[i] * num_cities + t.tour[i+1]];
+		fitness += distance_matrix[t.path[i] * num_cities + t.path[i+1]];
 	}
-	fitness += distance_matrix[t.tour[num_cities-1] * num_cities + t.tour[0]];
+	fitness += distance_matrix[t.path[num_cities-1] * num_cities + t.path[0]];
 	return fitness;
 }
 
@@ -360,25 +363,23 @@ struct crossover_functor{
 		tour child1;
 		tour child2;
 		child1.fitness = 0;
-		child1.tour;
 		child2.fitness = 0;
-		child2.tour;
 		
 		for (int k = 0; k < num_cities; k++) {
-			child1.tour[k] = -1;
-			child2.tour[k] = -1;
+			child1.path[k] = -1;
+			child2.path[k] = -1;
 		}
 		
 		
-		child1.tour[0] = parent1.tour[0];
-		child2.tour[0] = parent2.tour[0];
-		int p2city = parent2.tour[0];
+		child1.path[0] = parent1.path[0];
+		child2.path[0] = parent2.path[0];
+		int p2city = parent2.path[0];
 		
 		
 		while(1) {
 			bool visited = false;
 			for (int j = 0; j < num_cities; j++) {
-				if (child1.tour[j] == p2city) {
+				if (child1.path[j] == p2city) {
 					visited = true;
 				}
 			}
@@ -388,19 +389,19 @@ struct crossover_functor{
 			
 			//since p2city hasn't yet been visited by child1, find where p2city occurs in parent1 and insert it into child1 at the same index
 			for (int j = 0; j < num_cities; j++) {
-				if (parent1.tour[j] == p2city) {
-					child1.tour[j] = p2city;
-					child2.tour[j] = parent2.tour[j];
-					p2city = parent2.tour[j];
+				if (parent1.path[j] == p2city) {
+					child1.path[j] = p2city;
+					child2.path[j] = parent2.path[j];
+					p2city = parent2.path[j];
 				}
 			}
 		}
 		
 		//fill in the -1 values in the children
 		for (int k = 0; k < num_cities; k++) {
-			if (child1.tour[k] == -1) {
-				child1.tour[k] = parent2.tour[k];
-				child2.tour[k] = parent1.tour[k];
+			if (child1.path[k] == -1) {
+				child1.path[k] = parent2.path[k];
+				child2.path[k] = parent1.path[k];
 			}
 		}
 		//can’t compute fitness here as requires distance_matrix
@@ -427,13 +428,13 @@ tour* create_children(){
 	cout << endl;
 	*/
 	//qsort population (parallelize?)
-	qsort_population(0, num_cities - 1, population);
+	//qsort_population(0, num_cities - 1, population);
 	
 	
 	//tour* children = new tour[group_size];
 	thrust::host_vector<tour> h_parent_set1(group_size/2);
 	thrust::host_vector<tour> h_parent_set2(group_size/2);
-	cout << "435 before populating parent_set" << endl;
+	
 	for(int i = 0 ; i < group_size; i =i+2){
 		h_parent_set1[i/2] = population[i];
 		h_parent_set2[i/2] = population[i+1];
@@ -441,16 +442,10 @@ tour* create_children(){
 		//cout << "h_parent_set2 " << i/2 << " " <<h_parent_set2[i/2].fitness << endl;
 	} 
 	
-	cout << "441 after populating parent_set" << endl;
-	
 	thrust::device_vector<tour> d_parent_set1 =  h_parent_set1;
-	
-	cout << "444 inbetween parent_sets" << endl;
-	thrust::device_vector<tour> d_parent_set2 = h_parent_set2;
-	
+	thrust::device_vector<tour> d_parent_set2 = h_parent_set2;	
 	thrust::device_vector<tour_pair>d_children(group_size/2);
 	//transfer children to device memory
-	cout << "before transform" << endl;
 	//apply crossover on adjacent pairs of elements in the parent set
 	thrust::transform(d_parent_set1.begin(), d_parent_set1.end(), d_parent_set2.begin(), d_children.begin(), crossover_functor(num_cities));
 	/*
@@ -465,6 +460,9 @@ tour* create_children(){
 	 */
 	tour* c = new tour[group_size];
 	thrust::host_vector<tour_pair> h_children(group_size);
+	//thrust::transform(d_children.begin(), d_children.end(), d_children.begin(), mutate_functor());
+	
+	
 	thrust::copy(d_children.begin(), d_children.end(), h_children.begin());
 	for (int i = 0; i < group_size; i += 2){
 		c[i] = h_children[i/2].t1;
@@ -473,6 +471,7 @@ tour* create_children(){
 		c[i+1].fitness = compute_fitness(c[i+1]);
 		cout << "child fitness : " << c[i].fitness << " " << c[i+1].fitness << endl;
 	}
+	
 	return c;
 }
 
@@ -487,14 +486,14 @@ void mutate(tour* t ){
 	int start;
 	int end;
 	do {
-		start = rand() % num_cities;
-		end = rand() % num_cities;
+		start = rand() % (num_cities -1) + 1;
+		end = rand() % (num_cities - 1) + 1;
 	} while ((start >= end) or (start == 0 and end == (num_cities - 1)));
 	
 	while (start < end) {
-		int temp = t->tour[start];
-		t->tour[start] = t->tour[end];
-		t->tour[end] = temp;
+		int temp = t->path[start];
+		t->path[start] = t->path[end];
+		t->path[end] = temp;
 		start++;
 		end--;
 	}
@@ -513,8 +512,8 @@ void mutate(tour* t ){
  * create_new_generation sorts the current population tour array and the children tour array, and then proceeds to replace
  * the group_size weakest tours in the population array with the children if the fitness of the child is higher
  */
-void create_new_generation(tour* population, tour* children, int population_size, int group_size){
-	qsort_population(0, population_size -1, population);
+void create_new_generation(thrust::host_vector <tour> population, tour* children, int population_size, int group_size){
+	//qsort_population(0, population_size -1, population);
 	qsort_population(0, group_size -1, children);
 	int population_index = population_size - group_size;
 	int children_index = 0;
@@ -555,10 +554,25 @@ void run_genetic_algorithm(){
 	}
 	
 	generate_initial_population();
+	thrust::host_vector <tour> h_population(population_size);
+	for(int k = 0; k < population_size; k++){
+		h_population[k] = population[k];
+	}
+	thrust::device_vector<tour> d_population = h_population;
+	thrust::sort(d_population.begin(), d_population.end());
+	thrust::copy(d_population.begin(), d_population.end(), h_population.begin());
 	for(int j = 0; j < termination_step; j++){
 		tour* children = create_children();
-		create_new_generation(population, children, population_size, group_size);
+		create_new_generation(h_population, children, population_size, group_size);
+		thrust::device_vector<tour> d_population = h_population;
+		thrust::sort(d_population.begin(), d_population.end());
+		thrust::copy(d_population.begin(), d_population.end(), h_population.begin());
 	}
+	
+	for(int m = 0; m < population_size; m++){
+		population[m] = h_population[m];
+	}
+	
 	print_best_tour();
 }
 
@@ -571,7 +585,7 @@ void print_best_tour(){
 	cout << "Best Tour Generated After " << termination_step << "generations \n";
 	cout << "Fitness: " << population[0].fitness << endl << "Tour \n";
 	for (int i = 0; i < num_cities; i++){
-		cout << population[0].tour[i] << endl;
+		cout << population[0].path[i] << endl;
 	}
 	
 }

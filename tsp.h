@@ -4,8 +4,13 @@
 using std::vector;
 struct tour{
 float fitness;
-int tour[14];
+int path[14];
 //CHANGE this to map_size
+
+   inline __host__ __device__ bool  operator < (const tour& t) const
+    {
+        return (fitness < t.fitness);
+    }
 
 };
 
