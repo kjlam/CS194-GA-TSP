@@ -469,6 +469,8 @@ tour* create_children(){
 	for (int i = 0; i < group_size; i += 2){
 		c[i] = h_children[i/2].t1;
 		c[i+1] = h_children[i/2].t2;
+		c[i].fitness = compute_fitness(c[i]);
+		c[i+1].fitness = compute_fitness(c[i+1]);
 		cout << "child fitness : " << c[i].fitness << " " << c[i+1].fitness << endl;
 	}
 	return c;
@@ -521,7 +523,7 @@ void create_new_generation(tour* population, tour* children, int population_size
 	 * the new children
 	 */
 	for(int i = 0; i < group_size && population_index < population_size; i ++){
-		if(children[children_index].fitness > population[population_index].fitness){
+		if(children[children_index].fitness < population[population_index].fitness){
 			population[population_index] = children[children_index];
 			population_index ++;
 		}
