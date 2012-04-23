@@ -17,8 +17,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <thrust/transform.h>
-
-
+#include <thrust/copy.h>
 using std::vector;
 using namespace std;
 
@@ -167,26 +166,26 @@ void generate_initial_population(){
  * and place them in closest_neighbors 2d array NOT WORKING AS INTENDED, QUICK_SELECT 
  * RETURNS VALUE NOT INDEX NEED TO FIND INDEX VALUE
  *
-void generate_closest_neighbors(){
-	for(int i = 0; i < population_size; i++){
-		int closest_index = 0;
-		//num_closer_way_points + 1 used as quick_select will pick out i as well, since distance is 0 with itself
-		float m = array_quick_select(distance_matrix[i], 0, population_size - 1, num_closer_way_points + 1);
-		
-		closest_neighbors[i][closest_index] = m;
-		closest_index++;
-		for(int k = 0; k < population_size; k++){
-			if(distance_matrix[i][k] < m && distance_matrix[i][k] != 0 ){
-				closest_neighbors[i][closest_index] = distance_matrix[i][k];
-				closest_index++;
-				if(closest_index == num_closer_way_points){
-					return;
-				}
-			}
-		}
-	}
-}
-*/
+ * void generate_closest_neighbors(){
+ *	for(int i = 0; i < population_size; i++){
+ *		int closest_index = 0;
+ *		//num_closer_way_points + 1 used as quick_select will pick out i as well, since distance is 0 with itself
+ *		float m = array_quick_select(distance_matrix[i], 0, population_size - 1, num_closer_way_points + 1);
+ *		
+ *		closest_neighbors[i][closest_index] = m;
+ *		closest_index++;
+ *		for(int k = 0; k < population_size; k++){
+ *			if(distance_matrix[i][k] < m && distance_matrix[i][k] != 0 ){
+ *				closest_neighbors[i][closest_index] = distance_matrix[i][k];
+ *				closest_index++;
+ *				if(closest_index == num_closer_way_points){
+ *					return;
+ }
+ }
+ }
+ }
+ }
+ */
 
 
 /*
@@ -225,10 +224,10 @@ void generate_tour(int* linear_cities, int index){
 			next_city = vector_quick_select(available_cities, 0, available_cities.size() - 1, random_closest);
 		}else // choose next city randomly
 		{
-		//cout << "224 city chosen randomly" << endl;
-		int city_index = rand() % available_cities.size();
-		//cout << "227 next city " << city_index << endl;
-		next_city = available_cities[city_index];
+			//cout << "224 city chosen randomly" << endl;
+			int city_index = rand() % available_cities.size();
+			//cout << "227 next city " << city_index << endl;
+			next_city = available_cities[city_index];
 		}
 		//loop through the available_cities vector until u found the city value selected to be added
 		//delete the value from the available_cities vector
@@ -288,73 +287,17 @@ void select_group(int group_size){
 
 
 //given a tour with initialized tour array, returns fitness of tour
-int compute_fitness(tour t){
-	int fitness = 0;
+float compute_fitness(tour t){
+	float fitness = 0;
 	for(int i = 0; i < num_cities -1; i ++){
-		fitness = distance_matrix[t.tour[i] * num_cities + t.tour[i+1]];
+		fitness += distance_matrix[t.tour[i] * num_cities + t.tour[i+1]];
 	}
+	fitness += distance_matrix[t.tour[num_cities-1] * num_cities + t.tour[0]];
 	return fitness;
 }
 
 
 
-/*
- * Tour crossover(Tour parent1, Tour Parent2): Crossover of
- * 2 parents and then compute the length
- */
-void crossover(tour parent1, tour parent2, tour* children, int index){
-	tour child1;
-	tour child2;
-	child1.fitness = 0;
-	//child1.tour = new int[num_cities];
-	child2.fitness = 0;
-	//child2.tour = new int[num_cities];
-	
-	for (int k = 0; k < num_cities; k++) {
-		child1.tour[k] = -1;
-		child2.tour[k] = -1;
-	}
-	
-	
-	child1.tour[0] = parent1.tour[0];
-	child2.tour[0] = parent2.tour[0];
-	int p2city = parent2.tour[0];
-	
-	
-	while(1) {
-		bool visited = false;
-		for (int j = 0; j < num_cities; j++) {
-			if (child1.tour[j] == p2city) {
-				visited = true;
-			}
-		}
-		if (visited) {
-			break;
-		}
-		
-		//since p2city hasn't yet been visited by child1, find where p2city occurs in parent1 and insert it into child1 at the same index
-		for (int j = 0; j < num_cities; j++) {
-			if (parent1.tour[j] == p2city) {
-				child1.tour[j] = p2city;
-				child2.tour[j] = parent2.tour[j];
-				p2city = parent2.tour[j];
-			}
-		}
-	}
-	
-	//fill in the -1 values in the children
-	for (int k = 0; k < num_cities; k++) {
-		if (child1.tour[k] == -1) {
-			child1.tour[k] = parent2.tour[k];
-			child2.tour[k] = parent1.tour[k];
-		}
-	}
-	child1.fitness = compute_fitness(child1);
-	child2.fitness = compute_fitness(child2);
-	children[index] = child1;
-	children[index + 1] = child2;
-	
-}
 
 
 
@@ -397,32 +340,140 @@ void qsort_population(int left, int right, tour* population) {
 
 
 
+struct tour_pair{
+	tour t1; 
+	tour t2;
+};
+
+
+/*
+ * Tour crossover(Tour parent1, Tour Parent2): Crossover of
+ * 2 parents and then compute the length
+ */
+struct crossover_functor{
+	int num_cities;
+	
+	crossover_functor(int _num_cities) : num_cities( _num_cities) {}
+	
+	
+	__host__ __device__ tour_pair operator()(const tour &parent1, const tour &parent2) const{
+		tour child1;
+		tour child2;
+		child1.fitness = 0;
+		child1.tour;
+		child2.fitness = 0;
+		child2.tour;
+		
+		for (int k = 0; k < num_cities; k++) {
+			child1.tour[k] = -1;
+			child2.tour[k] = -1;
+		}
+		
+		
+		child1.tour[0] = parent1.tour[0];
+		child2.tour[0] = parent2.tour[0];
+		int p2city = parent2.tour[0];
+		
+		
+		while(1) {
+			bool visited = false;
+			for (int j = 0; j < num_cities; j++) {
+				if (child1.tour[j] == p2city) {
+					visited = true;
+				}
+			}
+			if (visited) {
+				break;
+			}
+			
+			//since p2city hasn't yet been visited by child1, find where p2city occurs in parent1 and insert it into child1 at the same index
+			for (int j = 0; j < num_cities; j++) {
+				if (parent1.tour[j] == p2city) {
+					child1.tour[j] = p2city;
+					child2.tour[j] = parent2.tour[j];
+					p2city = parent2.tour[j];
+				}
+			}
+		}
+		
+		//fill in the -1 values in the children
+		for (int k = 0; k < num_cities; k++) {
+			if (child1.tour[k] == -1) {
+				child1.tour[k] = parent2.tour[k];
+				child2.tour[k] = parent1.tour[k];
+			}
+		}
+		//can’t compute fitness here as requires distance_matrix
+		//child1.fitness = compute_fitness(child1);
+		//child2.fitness = compute_fitness(child2);
+		//children[index] = child1;
+		//children[index + 1] = child2;
+		tour_pair p;
+		p.t1 = child1;
+		p.t2 = child2;
+		return p;
+	}
+	
+};
+
+
+
+
 tour* create_children(){
 	/*cout << "population before sorting\n";
 	for (int i = 0; i < population_size; i++) {
 		cout << population[i].fitness << " ";
 	}
 	cout << endl;
-	qsort_population(0, num_cities - 1, population);
-	cout << "population after sorting\n";
-	for (int i = 0; i < population_size; i++) {
-		cout << population[i].fitness << " ";
-	}
-	cout << endl;
-	cout << "\n" << endl;  
 	*/
-	tour* children = new tour[group_size];
-	for (int i = 0; i < group_size; i += 2){
-		crossover(population[i], population[group_size-i], children, i);
-		int mutate_or_not = rand() % 100 + 1;
-		if(mutate_or_not < mutation_percentage){
-			mutate(&children[i]);
-			mutate(&children[i+1]);
+	//qsort population (parallelize?)
+	qsort_population(0, num_cities - 1, population);
+	
+	
+	//tour* children = new tour[group_size];
+	thrust::host_vector<tour> h_parent_set1(group_size/2);
+	thrust::host_vector<tour> h_parent_set2(group_size/2);
+	cout << "435 before populating parent_set" << endl;
+	for(int i = 0 ; i < group_size; i =i+2){
+		h_parent_set1[i/2] = population[i];
+		h_parent_set2[i/2] = population[i+1];
+		//cout << "h_parent_set1 " << i/2 << " " <<  h_parent_set1[i/2].fitness << endl;
+		//cout << "h_parent_set2 " << i/2 << " " <<h_parent_set2[i/2].fitness << endl;
+	} 
+	
+	cout << "441 after populating parent_set" << endl;
+	
+	thrust::device_vector<tour> d_parent_set1 =  h_parent_set1;
+	
+	cout << "444 inbetween parent_sets" << endl;
+	thrust::device_vector<tour> d_parent_set2 = h_parent_set2;
+	
+	thrust::device_vector<tour_pair>d_children(group_size/2);
+	//transfer children to device memory
+	cout << "before transform" << endl;
+	//apply crossover on adjacent pairs of elements in the parent set
+	thrust::transform(d_parent_set1.begin(), d_parent_set1.end(), d_parent_set2.begin(), d_children.begin(), crossover_functor(num_cities));
+	/*
+	 *	for (int i = 0; i < group_size; i += 2){
+	 *		crossover(population[i], population[i+1], children, i);
+	 *		int mutate_or_not = rand() % 100 + 1;
+	 *		if(mutate_or_not < mutation_percentage){
+	 *			mutate(&children[i]);
 		}
 		children[i].fitness = compute_fitness(children[i]);
+	 }
+	 */
+	tour* c = new tour[group_size];
+	thrust::host_vector<tour_pair> h_children(group_size);
+	thrust::copy(d_children.begin(), d_children.end(), h_children.begin());
+	for (int i = 0; i < group_size; i += 2){
+		c[i] = h_children[i/2].t1;
+		c[i+1] = h_children[i/2].t2;
+		cout << "child fitness : " << c[i].fitness << " " << c[i+1].fitness << endl;
 	}
-	return children;
+	return c;
 }
+
 
 
 /*
@@ -476,8 +527,8 @@ void create_new_generation(tour* population, tour* children, int population_size
 		}
 		children_index++;
 	}
-
-
+	
+	
 }
 
 
@@ -491,8 +542,8 @@ void run_genetic_algorithm(){
 	/*distance_matrix = new int*[num_cities];
 	 *	for(int i = 0; i < num_cities; i ++){
 	 *	distance_matrix[i] = new int[num_cities];
-	 }
-	 */
+}
+*/
 	
 	population = new tour[population_size];
 	closest_neighbors = new int*[num_cities];
@@ -562,9 +613,9 @@ int main(int argc, char** argv){
 	distance_matrix = new float[num_cities * num_cities];
 	/*for loop no longe rneeded as changed distance_matrix to 1d array
 	 * for (int i = 0; i< num_cities; i++) {
-		distance_matrix[i] = new float[num_cities];
-	}
-	*/
+	 *		distance_matrix[i] = new float[num_cities];
+}
+*/
 	//initialize the random seed, ONLY CALL ONCE in program 
 	srand(time(NULL));
 	
@@ -604,9 +655,9 @@ int main(int argc, char** argv){
 	cout << "file parsing reached" << endl;
 	run_genetic_algorithm();
 	/* no longer needed as distance_matrix is a 1d array
-	for (int i = 0; i < num_cities; i++) {
-		delete[] distance_matrix[i];
-	}
-	*/
+	 *	for (int i = 0; i < num_cities; i++) {
+	 *		delete[] distance_matrix[i];
+}
+*/
 	delete[] distance_matrix;
 }
