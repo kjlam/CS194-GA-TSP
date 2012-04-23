@@ -14,6 +14,10 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+#include <thrust/transform.h>
+
 
 using std::vector;
 using namespace std;
@@ -193,8 +197,8 @@ void generate_closest_neighbors(){
 void generate_tour(int* linear_cities, int index){
 	tour new_tour;
 	new_tour.fitness = 0;
-	new_tour.tour = new int[num_cities];
-	new_tour.tour_lengths = new float[num_cities];
+	//new_tour.tour = new int[num_cities];
+	//new_tour.tour_lengths = new float[num_cities];
 	//cout << "tour number: " << index << endl;
 	//vector of available_cities, cities will get deleted from this resizable array as they get added to the tour
 	//vector<int> available_cities(linear_cities, linear_cities + sizeof(linear_cities)/sizeof(int));
@@ -239,13 +243,13 @@ void generate_tour(int* linear_cities, int index){
 		
 		//cout << next_city << endl;
 		new_tour.tour[i] = next_city;
-		new_tour.tour_lengths[i-1] = distance_matrix[current_city*num_cities + next_city];
+		//new_tour.tour_lengths[i-1] = distance_matrix[current_city*num_cities + next_city];
 		new_tour.fitness += distance_matrix[current_city * num_cities + next_city];
 		current_city = next_city;
 	}
 	
 	//compute the final fitness and tour_length connecting the final city to the first city
-	new_tour.tour_lengths[num_cities-1] = distance_matrix[current_city * num_cities + 0];
+	//new_tour.tour_lengths[num_cities-1] = distance_matrix[current_city * num_cities + 0];
 	new_tour.fitness += distance_matrix[current_city * num_cities + next_city];
 	cout << endl;
 	population[index] = new_tour;
@@ -302,11 +306,9 @@ void crossover(tour parent1, tour parent2, tour* children, int index){
 	tour child1;
 	tour child2;
 	child1.fitness = 0;
-	child1.tour = new int[num_cities];
-	child1.tour_lengths = new float[num_cities];
+	//child1.tour = new int[num_cities];
 	child2.fitness = 0;
-	child2.tour = new int[num_cities];
-	child2.tour_lengths = new float[num_cities];
+	//child2.tour = new int[num_cities];
 	
 	for (int k = 0; k < num_cities; k++) {
 		child1.tour[k] = -1;

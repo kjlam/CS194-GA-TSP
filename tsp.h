@@ -4,8 +4,9 @@
 using std::vector;
 struct tour{
 float fitness;
-int* tour;
-float *tour_lengths;
+int tour[14];
+//CHANGE this to map_size
+
 };
 
 struct city
