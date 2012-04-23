@@ -459,7 +459,7 @@ void mutate(tour* t ){
  * create_new_generation sorts the current population tour array and the children tour array, and then proceeds to replace
  * the group_size weakest tours in the population array with the children if the fitness of the child is LOWER 
  *LOWER FITNESS IS BETTER, HIGHER FITNESS GET REPLACD, AS FITNESS IS TOUR LENGTH
- * /
+ */
 void create_new_generation(tour* population, tour* children, int population_size, int group_size){
 	qsort_population(0, population_size -1, population);
 	qsort_population(0, group_size -1, children);
