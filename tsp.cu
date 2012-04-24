@@ -13,7 +13,9 @@
 #include <iostream>
 #include <string.h>
 #include <math.h>
+#include <sys/time.h>
 #include <time.h>
+#include <cuda.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <thrust/transform.h>
@@ -21,6 +23,7 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/for_each.h>
 #include <thrust/sort.h>
+
 using std::vector;
 using namespace std;
 
@@ -33,9 +36,17 @@ int mutation_percentage;
 int termination_step;
 //int** distance_matrix;
 float* distance_matrix;
+float* d_distance_matrix;
 int ** closest_neighbors;
 tour* population; //Tour new_population[]
 
+
+double
+timestamp (){
+	struct timeval tv;
+	gettimeofday (&tv, 0);
+	return tv.tv_sec + 1e-6*tv.tv_usec;
+}
 
 
 
@@ -229,7 +240,7 @@ void generate_tour(int* linear_cities, int index){
 		{
 			//cout << "224 city chosen randomly" << endl;
 			int city_index = rand() % available_cities.size();
-			//cout << "227 next city " << city_index << endl;
+			//cout<< "227 next city " << city_index << endl;
 			next_city = available_cities[city_index];
 		}
 		//loop through the available_cities vector until u found the city value selected to be added
@@ -253,7 +264,6 @@ void generate_tour(int* linear_cities, int index){
 	//compute the final fitness and tour_length connecting the final city to the first city
 	//new_tour.tour_lengths[num_cities-1] = distance_matrix[current_city * num_cities + 0];
 	new_tour.fitness += distance_matrix[current_city * num_cities + next_city];
-	cout << endl;
 	population[index] = new_tour;
 }
 
@@ -289,19 +299,33 @@ void select_group(int group_size){
 }
 
 
-//given a tour with initialized tour array, returns fitness of tour
+/*//given a tour with initialized tour array, returns fitness of tour
 float compute_fitness(tour t){
 	float fitness = 0;
 	for(int i = 0; i < num_cities -1; i ++){
+		//cout << "305 " << t.path[i] << " " << t.path[i+1];
 		fitness += distance_matrix[t.path[i] * num_cities + t.path[i+1]];
+		if(t.path[i] != -1 and t.path[i+1] != -1){
+		//	cout << "299 " <<  t.path[i]  << " " << t.path[i+1] << " " << endl;
+		}
 	}
 	fitness += distance_matrix[t.path[num_cities-1] * num_cities + t.path[0]];
 	return fitness;
 }
+*/
+
+__global__ static void
+	compute_fitness(tour* children, float* d_matrix, int num_cities){
+		int id = blockIdx.x*blockDim.x + threadIdx.x;
+		children[id].fitness = 0;
+		for(int i = 0; i < num_cities - 1; i++){
+			children[id].fitness += d_matrix[ children[id].path[i] * num_cities + children[id].path[i+1]];
+		}
+		children[id].fitness += d_matrix[ children[id].path[num_cities - 1] * num_cities + children[id].path[0]];
+	}
 
 
-
-
+ 
 
 
 /*
@@ -353,33 +377,65 @@ struct tour_pair{
  * Tour crossover(Tour parent1, Tour Parent2): Crossover of
  * 2 parents and then compute the length
  */
-struct crossover_functor{
-	int num_cities;
-	
-	crossover_functor(int _num_cities) : num_cities( _num_cities) {}
-	
-	
-	__host__ __device__ tour_pair operator()(const tour &parent1, const tour &parent2) const{
-		tour child1;
-		tour child2;
-		child1.fitness = 0;
-		child2.fitness = 0;
-		
+__global__ static void
+	crossover(tour* parent1, tour* parent2, tour* children, tour* indexOfParent1, tour* indexOfParent2, tour* cycles, int num_cities, int group_size){
+		int instance = blockIdx.x*blockDim.x + threadIdx.x;
+		if(instance >= group_size/2){
+			return;
+		}
+
 		for (int k = 0; k < num_cities; k++) {
-			child1.path[k] = -1;
-			child2.path[k] = -1;
+			//children[2*instance].path[k] = -1;
+			//children[2*instance + 1].path[k] = -1;
+			cycles[instance].path[k] = -1;
 		}
 		
+		int cycle_index = 0;
 		
-		child1.path[0] = parent1.path[0];
-		child2.path[0] = parent2.path[0];
-		int p2city = parent2.path[0];
+		int p1Index = parent1[instance].path[0];
+		cycles[instance].path[cycle_index] = p1Index;
+		cycle_index = cycle_index + 1;
+
+		for(int i = 0; i < num_cities; i ++){
+			int p1_value_at_i = parent1[instance].path[i];
+			int p2_value_at_i = parent2[instance].path[i];
+			indexOfParent1[instance].path[p1_value_at_i] = i;
+			indexOfParent2[instance].path[p2_value_at_i] = i;
+			children[2*instance].path[i] = p1_value_at_i;
+			children[2*instance + 1].path[i] = p2_value_at_i;
+		}
 		
+	
 		
+		children[2*instance].fitness = 0;
+		children[2*instance + 1].fitness = 0;
+		
+		//int p2city = indexOfParent2[instance].path[p1Index];
+		int p2city = children[2*instance +1].path[p1Index];
+		 p1Index = indexOfParent1[instance].path[p2city];
+		
+		while(p1Index != cycles[instance].path[0]){
+			cycles[instance].path[cycle_index] = p1Index;
+			cycle_index++;
+			p2city = children[2*instance+1].path[p1Index];
+			p1Index = indexOfParent1[instance].path[p2city];
+		}
+		
+		for(int i = 0; i < num_cities; i++){
+			if(cycles[instance].path[i] != -1){
+				int reverse = cycles[instance].path[i];
+				int tmp = children[2*instance].path[reverse];
+				children[2*instance].path[reverse] = children[2*instance+1].path[reverse];
+				children[2*instance+1].path[reverse] = tmp;
+			}
+		}
+			
+
+		/*
 		while(1) {
 			bool visited = false;
 			for (int j = 0; j < num_cities; j++) {
-				if (child1.path[j] == p2city) {
+				if (children[2*instance].path[j] == p2city) {
 					visited = true;
 				}
 			}
@@ -389,19 +445,19 @@ struct crossover_functor{
 			
 			//since p2city hasn't yet been visited by child1, find where p2city occurs in parent1 and insert it into child1 at the same index
 			for (int j = 0; j < num_cities; j++) {
-				if (parent1.path[j] == p2city) {
-					child1.path[j] = p2city;
-					child2.path[j] = parent2.path[j];
-					p2city = parent2.path[j];
+				if (parent1[instance].path[j] == p2city) {
+					children[2*instance].path[j] = p2city;
+					children[2*instance + 1].path[j] = parent2[instance].path[j];
+					p2city = parent2[instance].path[j];
 				}
 			}
 		}
 		
 		//fill in the -1 values in the children
 		for (int k = 0; k < num_cities; k++) {
-			if (child1.path[k] == -1) {
-				child1.path[k] = parent2.path[k];
-				child2.path[k] = parent1.path[k];
+			if (children[2*instance].path[k] == -1) {
+				children[2*instance].path[k] = parent2[instance].path[k];
+				children[2*instance + 1].path[k] = parent1[instance].path[k];
 			}
 		}
 		//can’t compute fitness here as requires distance_matrix
@@ -409,13 +465,47 @@ struct crossover_functor{
 		//child2.fitness = compute_fitness(child2);
 		//children[index] = child1;
 		//children[index + 1] = child2;
-		tour_pair p;
-		p.t1 = child1;
-		p.t2 = child2;
-		return p;
-	}
+		*/
+}
 	
-};
+
+
+/*
+ * parallalel mutate 
+ */
+
+__global__ void parallel_mutate(tour* d_children, int* d_mutate_indices, int group_size){
+
+        int i = blockIdx.x * blockDim.x + threadIdx.x;
+        int tid = threadIdx.x;
+       
+        __shared__ tour tours[32];
+        tours[tid] = d_children[i];
+       
+        int start = d_mutate_indices[2*blockIdx.x];
+        int end = d_mutate_indices[2*blockIdx.x+1];
+
+        if (i < group_size) {
+                /*
+                while (start < end) {
+                        int temp = d_children[i].tour[start];
+                        d_children[i].tour[start] = d_children[i].tour[end];
+                        d_children[i].tour[end] = temp;
+                        start++;
+                        end--;
+                }
+                */
+                while (start < end) {
+                        int temp = tours[tid].path[start];
+                        tours[tid].path[start] = tours[tid].path[end];
+                        tours[tid].path[end] = temp;
+                        start++;
+                        end--;
+                }
+               
+                d_children[i] = tours[tid];
+        }
+}
 
 
 
@@ -429,11 +519,26 @@ tour* create_children(){
 	*/
 	//qsort population (parallelize?)
 	//qsort_population(0, num_cities - 1, population);
+	thrust::host_vector <tour> h_population(population_size);
+	for(int k = 0; k < population_size; k++){
+		h_population[k] = population[k];
+	}
+	thrust::device_vector<tour> d_population = h_population;
+	thrust::sort(d_population.begin(), d_population.end());
+	thrust::copy(d_population.begin(), d_population.end(), h_population.begin());
 	
 	
-	//tour* children = new tour[group_size];
-	thrust::host_vector<tour> h_parent_set1(group_size/2);
-	thrust::host_vector<tour> h_parent_set2(group_size/2);
+	
+	int num_threads = group_size/2;
+	int num_blocks = (num_threads + 31)/32;
+	dim3 block(32, 1);
+	dim3 grid(num_blocks, 1);
+	tour *h_children = new tour[group_size];
+	tour *h_parent_set1 = new tour[group_size/2];
+	tour *h_parent_set2 = new tour[group_size/2];
+	tour* h_index_of_parent_set1 = new tour[group_size/2];
+	tour* h_index_of_parent_set2 = new tour[group_size/2];
+	tour* h_cycles = new tour[group_size/2];
 	
 	for(int i = 0 ; i < group_size; i =i+2){
 		h_parent_set1[i/2] = population[i];
@@ -442,37 +547,106 @@ tour* create_children(){
 		//cout << "h_parent_set2 " << i/2 << " " <<h_parent_set2[i/2].fitness << endl;
 	} 
 	
-	thrust::device_vector<tour> d_parent_set1 =  h_parent_set1;
-	thrust::device_vector<tour> d_parent_set2 = h_parent_set2;	
-	thrust::device_vector<tour_pair>d_children(group_size/2);
-	//transfer children to device memory
+	tour* d_children = 0;
+	tour* d_parent_set1 = 0;
+	tour* d_parent_set2 = 0;
+	tour* d_index_of_parent_set1 = 0;
+	tour* d_index_of_parent_set2 = 0;
+	tour* d_cycles = 0;
+	
+	//cout << "497 before cudaMallocs" << endl;
+	cudaMalloc((void**)&d_children, sizeof(tour)*group_size);
+	cudaMalloc((void**)&d_parent_set1, sizeof(tour)*group_size/2);
+	cudaMalloc((void**)&d_parent_set2, sizeof(tour)*group_size/2);
+	cudaMalloc((void**)&d_index_of_parent_set1, sizeof(tour)*group_size/2);
+	cudaMalloc((void**)&d_index_of_parent_set2, sizeof(tour)*group_size/2);
+	cudaMalloc((void**)&d_cycles, sizeof(tour)*group_size/2);
+	//cout << "504 before cudaMemcpys " << endl;
+	
+	cudaMemcpy(d_children, h_children, sizeof(tour)*group_size, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_parent_set1, h_parent_set1, sizeof(tour)*group_size/2, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_parent_set2, h_parent_set2, sizeof(tour)*group_size/2, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_index_of_parent_set1, h_index_of_parent_set1, sizeof(tour)*group_size/2, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_index_of_parent_set2, h_index_of_parent_set2, sizeof(tour)*group_size/2, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_cycles, h_cycles, sizeof(tour)*group_size/2, cudaMemcpyHostToDevice);
+	//cout << "before crossover" << endl;
 	//apply crossover on adjacent pairs of elements in the parent set
-	thrust::transform(d_parent_set1.begin(), d_parent_set1.end(), d_parent_set2.begin(), d_children.begin(), crossover_functor(num_cities));
-	/*
-	 *	for (int i = 0; i < group_size; i += 2){
-	 *		crossover(population[i], population[i+1], children, i);
-	 *		int mutate_or_not = rand() % 100 + 1;
-	 *		if(mutate_or_not < mutation_percentage){
-	 *			mutate(&children[i]);
-		}
-		children[i].fitness = compute_fitness(children[i]);
-	 }
-	 */
-	tour* c = new tour[group_size];
-	thrust::host_vector<tour_pair> h_children(group_size);
-	//thrust::transform(d_children.begin(), d_children.end(), d_children.begin(), mutate_functor());
+	//thrust::transform(d_parent_set1.begin(), d_parent_set1.end(), d_parent_set2.begin(), d_children.begin(), crossover_functor(num_cities));
+	crossover<<<grid, block>>>(d_parent_set1, d_parent_set2, d_children, d_index_of_parent_set1, d_index_of_parent_set2, d_cycles, num_cities, group_size);
 	
 	
-	thrust::copy(d_children.begin(), d_children.end(), h_children.begin());
-	for (int i = 0; i < group_size; i += 2){
-		c[i] = h_children[i/2].t1;
-		c[i+1] = h_children[i/2].t2;
-		c[i].fitness = compute_fitness(c[i]);
-		c[i+1].fitness = compute_fitness(c[i+1]);
-		cout << "child fitness : " << c[i].fitness << " " << c[i+1].fitness << endl;
+	num_threads = group_size;
+	num_blocks = (num_threads + 31)/32;
+	dim3 block1(32, 1);
+	dim3 grid1(num_blocks, 1);
+	int* h_random_arr = new int[num_blocks*2];
+	for(int i = 0; i < num_blocks * 2; i++){
+		h_random_arr[i] = rand();
 	}
 	
-	return c;
+	int* d_random_arr = 0;
+	
+	cudaMalloc((void**)&d_random_arr, sizeof(int) * num_blocks * 2);
+	cudaMemcpy(d_random_arr, h_random_arr, sizeof(int) * num_blocks * 2, cudaMemcpyHostToDevice);
+	
+	parallel_mutate<<<grid1, block1>>> (d_children, d_random_arr, group_size);
+	
+	//cout << "after crossover" << endl;
+	//cudaMemcpy(h_children, d_children, sizeof(tour)*group_size, cudaMemcpyDeviceToHost);
+	/*
+	//cudaFree(d_children);
+	cudaFree(d_parent_set1);
+	cudaFree(d_parent_set2);
+	cudaFree(d_index_of_parent_set1);
+	cudaFree(d_index_of_parent_set2);
+	cudaFree(d_cycles);
+	*/
+	
+	//cout << "525 after cudaFrees" << endl;
+	//serial mutation
+	/*
+	 for (int i = 0; i < group_size; i ++){
+	 		
+	 		int mutate_or_not = rand() % 100 + 1;
+	 		if(mutate_or_not < mutation_percentage){
+	 			mutate(&h_children[i]);
+		}
+		//h_children[i].fitness = compute_fitness(children[i]);
+	 }
+*/
+	//cout << "535 after mutaion" << endl;
+	//tour* c = new tour[group_size];
+	//thrust::host_vector<tour_pair> h_children(group_size);
+	//thrust::transform(d_children.begin(), d_children.end(), d_children.begin(), mutate_functor());
+	
+	//cout << "478 " << h_children[0].path[3] << endl;
+	//cout << "478 " << h_children[0].path[40] << endl;
+	//thrust::copy(d_children.begin(), d_children.end(), h_children.begin());
+
+
+	
+
+	//cudaMemcpy(d_children, h_children, sizeof(tour)*group_size, cudaMemcpyHostToDevice);
+	
+	compute_fitness<<<grid1, block1>>>(d_children, d_distance_matrix, num_cities);
+	/*for (int i = 0; i < group_size; i++){
+		//cout << "479 " << h_children[i].fitness << endl;
+		//cout << "before h_children[i]" << endl;
+		h_children[i].fitness = compute_fitness(h_children[i]);
+		//cout << "child fitness : " << i << " " << h_children[i].fitness << endl;
+	}*/
+	
+	cudaMemcpy(h_children, d_children, sizeof(tour)*group_size, cudaMemcpyDeviceToHost);
+	cudaFree(d_children);
+		//cudaFree(d_children);
+	cudaFree(d_parent_set1);
+	cudaFree(d_parent_set2);
+	cudaFree(d_index_of_parent_set1);
+	cudaFree(d_index_of_parent_set2);
+	cudaFree(d_cycles);
+	cudaFree(d_random_arr);
+	//cout << "546 after fitness computation" << endl;
+	return h_children;
 }
 
 
@@ -502,17 +676,11 @@ void mutate(tour* t ){
 
 
 
-
-
-
-
-
-
 /*
  * create_new_generation sorts the current population tour array and the children tour array, and then proceeds to replace
  * the group_size weakest tours in the population array with the children if the fitness of the child is higher
  */
-void create_new_generation(thrust::host_vector <tour> population, tour* children, int population_size, int group_size){
+void create_new_generation(tour* population, tour* children, int population_size, int group_size){
 	//qsort_population(0, population_size -1, population);
 	qsort_population(0, group_size -1, children);
 	int population_index = population_size - group_size;
@@ -546,6 +714,12 @@ void run_genetic_algorithm(){
 }
 */
 	
+	//move distance_matrix into gpu
+	d_distance_matrix = 0;
+	cudaMalloc((void**)&d_distance_matrix, sizeof(float) * num_cities*num_cities);
+	cudaMemcpy(d_distance_matrix, distance_matrix, sizeof(float)*num_cities*num_cities, cudaMemcpyHostToDevice);
+	
+	
 	population = new tour[population_size];
 	closest_neighbors = new int*[num_cities];
 	for(int i = 0; i < num_cities; i ++){
@@ -554,25 +728,19 @@ void run_genetic_algorithm(){
 	}
 	
 	generate_initial_population();
-	thrust::host_vector <tour> h_population(population_size);
-	for(int k = 0; k < population_size; k++){
-		h_population[k] = population[k];
-	}
-	thrust::device_vector<tour> d_population = h_population;
-	thrust::sort(d_population.begin(), d_population.end());
-	thrust::copy(d_population.begin(), d_population.end(), h_population.begin());
+
 	for(int j = 0; j < termination_step; j++){
 		tour* children = create_children();
-		create_new_generation(h_population, children, population_size, group_size);
-		thrust::device_vector<tour> d_population = h_population;
-		thrust::sort(d_population.begin(), d_population.end());
-		thrust::copy(d_population.begin(), d_population.end(), h_population.begin());
+		create_new_generation(population, children, population_size, group_size);
+
 	}
 	
-	for(int m = 0; m < population_size; m++){
+	/*for(int m = 0; m < population_size; m++){
 		population[m] = h_population[m];
 	}
+	*/
 	
+	cudaFree(d_distance_matrix);
 	print_best_tour();
 }
 
@@ -581,7 +749,7 @@ void run_genetic_algorithm(){
  * run_genetic_algorithm()
  */
 void print_best_tour(){
-	qsort_population(0, num_cities - 1, population);
+	qsort_population(0, population_size - 1, population);
 	cout << "Best Tour Generated After " << termination_step << "generations \n";
 	cout << "Fitness: " << population[0].fitness << endl << "Tour \n";
 	for (int i = 0; i < num_cities; i++){
@@ -616,6 +784,9 @@ int main(int argc, char** argv){
 	 *	mutation_percentage = 70;
 	 *	termination_step = 20;
 	 */
+	double start = timestamp();
+// your codes here
+
 	
 	char* filename = argv[1];
 	const char * num_cities_string = argv[2];
@@ -676,4 +847,6 @@ int main(int argc, char** argv){
 }
 */
 	delete[] distance_matrix;
+	double end = timestamp();
+	cout << "time elapsed" << (start - end) * 1000 << endl;
 }

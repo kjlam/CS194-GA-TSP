@@ -14,6 +14,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <sys/time.h>
 
 using std::vector;
 using namespace std;
@@ -30,6 +31,14 @@ float* distance_matrix;
 int ** closest_neighbors;
 tour* population; //Tour new_population[]
 
+
+
+double
+timestamp (){
+	struct timeval tv;
+	gettimeofday (&tv, 0);
+	return tv.tv_sec + 1e-6*tv.tv_usec;
+}
 
 
 
@@ -247,7 +256,7 @@ void generate_tour(int* linear_cities, int index){
 	//compute the final fitness and tour_length connecting the final city to the first city
 	new_tour.tour_lengths[num_cities-1] = distance_matrix[current_city * num_cities + 0];
 	new_tour.fitness += distance_matrix[current_city * num_cities + next_city];
-	cout << endl;
+	//cout << endl;
 	population[index] = new_tour;
 }
 
@@ -514,7 +523,7 @@ void run_genetic_algorithm(){
  * run_genetic_algorithm()
  */
 void print_best_tour(){
-	qsort_population(0, num_cities - 1, population);
+	qsort_population(0, population_size - 1, population);
 	cout << "Best Tour Generated After " << termination_step << "generations \n";
 	cout << "Fitness: " << population[0].fitness << endl << "Tour \n";
 	for (int i = 0; i < num_cities; i++){
@@ -524,7 +533,7 @@ void print_best_tour(){
 }
 
 
-/*
+/*um_cities
  * program requires all these parameters
  * program_name tsp_file num_cities population_size greedy_selection_percentage num_closer_way_points group_size
  * mutation_percentage termination_step
@@ -549,6 +558,8 @@ int main(int argc, char** argv){
 	 *	mutation_percentage = 70;
 	 *	termination_step = 20;
 	 */
+	
+	double start = timestamp();
 	
 	char* filename = argv[1];
 	const char * num_cities_string = argv[2];
@@ -609,4 +620,6 @@ int main(int argc, char** argv){
 	}
 	*/
 	delete[] distance_matrix;
+	double end = timestamp();
+	cout << "time elapsed" << (start - end) * 1000 << endl;
 }
