@@ -18,10 +18,7 @@
 #include <cuda.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
-#include <thrust/transform.h>
 #include <thrust/copy.h>
-#include <thrust/iterator/zip_iterator.h>
-#include <thrust/for_each.h>
 #include <thrust/sort.h>
 
 using std::vector;
@@ -39,6 +36,24 @@ float* distance_matrix;
 float* d_distance_matrix;
 int ** closest_neighbors;
 tour* population; //Tour new_population[]
+
+tour *h_children;
+tour *h_parent_set1;
+tour *h_parent_set2;
+tour* h_index_of_parent_set1;
+tour* h_index_of_parent_set2;
+tour* h_cycles;
+
+tour* d_children;
+tour* d_parent_set1;
+tour* d_parent_set2;
+tour* d_index_of_parent_set1;
+tour* d_index_of_parent_set2;
+tour* d_cycles;
+tour* d_population;
+
+thrust::device_vector<tour> thrust_population; 
+thrust::device_vector<tour> thrust_children;
 
 
 double
@@ -474,7 +489,7 @@ __global__ static void
  * parallalel mutate 
  */
 
-__global__ void parallel_mutate(tour* d_children, int* d_mutate_indices, int group_size){
+__global__ void parallel_mutate(tour* d_children, int* d_mutate_indices, int group_size, int num_cities){
 
         int i = blockIdx.x * blockDim.x + threadIdx.x;
         int tid = threadIdx.x;
@@ -482,8 +497,11 @@ __global__ void parallel_mutate(tour* d_children, int* d_mutate_indices, int gro
         __shared__ tour tours[32];
         tours[tid] = d_children[i];
        
-        int start = d_mutate_indices[2*blockIdx.x];
-        int end = d_mutate_indices[2*blockIdx.x+1];
+        int num1 = d_mutate_indices[2*blockIdx.x] % num_cities;
+        int num2 = d_mutate_indices[2*blockIdx.x+1] % num_cities;
+		
+		int start = min(num1, num2);
+		int end = max(num1, num2);
 
         if (i < group_size) {
                 /*
@@ -507,10 +525,17 @@ __global__ void parallel_mutate(tour* d_children, int* d_mutate_indices, int gro
         }
 }
 
+__global__ static void 
+	select_group(tour* d_p, tour* d_p1, tour* d_p2){
+		int id = blockIdx.x * blockDim.x + threadIdx.x;
+		
+		d_p1[id]= d_p[id*2];
+		d_p2[id] = d_p[id*2 + 1];
+		
+	}
 
 
-
-tour* create_children(){
+void create_children(){
 	/*cout << "population before sorting\n";
 	for (int i = 0; i < population_size; i++) {
 		cout << population[i].fitness << " ";
@@ -519,56 +544,29 @@ tour* create_children(){
 	*/
 	//qsort population (parallelize?)
 	//qsort_population(0, num_cities - 1, population);
-	thrust::host_vector <tour> h_population(population_size);
+	/*thrust::host_vector <tour> h_population(population_size);
 	for(int k = 0; k < population_size; k++){
 		h_population[k] = population[k];
 	}
 	thrust::device_vector<tour> d_population = h_population;
 	thrust::sort(d_population.begin(), d_population.end());
 	thrust::copy(d_population.begin(), d_population.end(), h_population.begin());
+	*/
 	
+	thrust::sort(thrust_population.begin(), thrust_population.end());
 	
+	/*
+	for(int m = 0; m < population_size; m++){
+		population[m] = h_population[m];
+	}
+	*/
 	
 	int num_threads = group_size/2;
 	int num_blocks = (num_threads + 31)/32;
 	dim3 block(32, 1);
 	dim3 grid(num_blocks, 1);
-	tour *h_children = new tour[group_size];
-	tour *h_parent_set1 = new tour[group_size/2];
-	tour *h_parent_set2 = new tour[group_size/2];
-	tour* h_index_of_parent_set1 = new tour[group_size/2];
-	tour* h_index_of_parent_set2 = new tour[group_size/2];
-	tour* h_cycles = new tour[group_size/2];
 	
-	for(int i = 0 ; i < group_size; i =i+2){
-		h_parent_set1[i/2] = population[i];
-		h_parent_set2[i/2] = population[i+1];
-		//cout << "h_parent_set1 " << i/2 << " " <<  h_parent_set1[i/2].fitness << endl;
-		//cout << "h_parent_set2 " << i/2 << " " <<h_parent_set2[i/2].fitness << endl;
-	} 
-	
-	tour* d_children = 0;
-	tour* d_parent_set1 = 0;
-	tour* d_parent_set2 = 0;
-	tour* d_index_of_parent_set1 = 0;
-	tour* d_index_of_parent_set2 = 0;
-	tour* d_cycles = 0;
-	
-	//cout << "497 before cudaMallocs" << endl;
-	cudaMalloc((void**)&d_children, sizeof(tour)*group_size);
-	cudaMalloc((void**)&d_parent_set1, sizeof(tour)*group_size/2);
-	cudaMalloc((void**)&d_parent_set2, sizeof(tour)*group_size/2);
-	cudaMalloc((void**)&d_index_of_parent_set1, sizeof(tour)*group_size/2);
-	cudaMalloc((void**)&d_index_of_parent_set2, sizeof(tour)*group_size/2);
-	cudaMalloc((void**)&d_cycles, sizeof(tour)*group_size/2);
-	//cout << "504 before cudaMemcpys " << endl;
-	
-	cudaMemcpy(d_children, h_children, sizeof(tour)*group_size, cudaMemcpyHostToDevice);
-	cudaMemcpy(d_parent_set1, h_parent_set1, sizeof(tour)*group_size/2, cudaMemcpyHostToDevice);
-	cudaMemcpy(d_parent_set2, h_parent_set2, sizeof(tour)*group_size/2, cudaMemcpyHostToDevice);
-	cudaMemcpy(d_index_of_parent_set1, h_index_of_parent_set1, sizeof(tour)*group_size/2, cudaMemcpyHostToDevice);
-	cudaMemcpy(d_index_of_parent_set2, h_index_of_parent_set2, sizeof(tour)*group_size/2, cudaMemcpyHostToDevice);
-	cudaMemcpy(d_cycles, h_cycles, sizeof(tour)*group_size/2, cudaMemcpyHostToDevice);
+	select_group<<<grid, block>>>(d_population, d_parent_set1, d_parent_set2);
 	//cout << "before crossover" << endl;
 	//apply crossover on adjacent pairs of elements in the parent set
 	//thrust::transform(d_parent_set1.begin(), d_parent_set1.end(), d_parent_set2.begin(), d_children.begin(), crossover_functor(num_cities));
@@ -589,7 +587,7 @@ tour* create_children(){
 	cudaMalloc((void**)&d_random_arr, sizeof(int) * num_blocks * 2);
 	cudaMemcpy(d_random_arr, h_random_arr, sizeof(int) * num_blocks * 2, cudaMemcpyHostToDevice);
 	
-	parallel_mutate<<<grid1, block1>>> (d_children, d_random_arr, group_size);
+	parallel_mutate<<<grid1, block1>>> (d_children, d_random_arr, group_size, num_cities);
 	
 	//cout << "after crossover" << endl;
 	//cudaMemcpy(h_children, d_children, sizeof(tour)*group_size, cudaMemcpyDeviceToHost);
@@ -613,7 +611,8 @@ tour* create_children(){
 		}
 		//h_children[i].fitness = compute_fitness(children[i]);
 	 }
-*/
+	 */
+
 	//cout << "535 after mutaion" << endl;
 	//tour* c = new tour[group_size];
 	//thrust::host_vector<tour_pair> h_children(group_size);
@@ -636,7 +635,9 @@ tour* create_children(){
 		//cout << "child fitness : " << i << " " << h_children[i].fitness << endl;
 	}*/
 	
-	cudaMemcpy(h_children, d_children, sizeof(tour)*group_size, cudaMemcpyDeviceToHost);
+	cudaFree(d_random_arr);
+	
+	/*cudaMemcpy(h_children, d_children, sizeof(tour)*group_size, cudaMemcpyDeviceToHost);
 	cudaFree(d_children);
 		//cudaFree(d_children);
 	cudaFree(d_parent_set1);
@@ -644,9 +645,11 @@ tour* create_children(){
 	cudaFree(d_index_of_parent_set1);
 	cudaFree(d_index_of_parent_set2);
 	cudaFree(d_cycles);
-	cudaFree(d_random_arr);
+	
 	//cout << "546 after fitness computation" << endl;
+	
 	return h_children;
+	*/
 }
 
 
@@ -680,22 +683,27 @@ void mutate(tour* t ){
  * create_new_generation sorts the current population tour array and the children tour array, and then proceeds to replace
  * the group_size weakest tours in the population array with the children if the fitness of the child is higher
  */
-void create_new_generation(tour* population, tour* children, int population_size, int group_size){
+__global__ void
+	create_new_generation(tour* population, tour* children, int population_size, int group_size){
 	//qsort_population(0, population_size -1, population);
-	qsort_population(0, group_size -1, children);
+	//qsort_population(0, group_size -1, children);
+	int id = blockIdx.x * blockDim.x + threadIdx.x;
 	int population_index = population_size - group_size;
-	int children_index = 0;
+	//int children_index = 0;
 	/*
 	 * this for loop only selects the group_size best between group_size lowest from previous generation and 
 	 * the new children
 	 */
-	for(int i = 0; i < group_size && population_index < population_size; i ++){
+	/*for(int i = 0; i < group_size && population_index < population_size; i ++){
+
 		if(children[children_index].fitness < population[population_index].fitness){
 			population[population_index] = children[children_index];
 			population_index ++;
 		}
 		children_index++;
-	}
+	}*/
+	//replaces group_size worst solutions with children regardless of fitness
+	population[population_index + id] = children[id];
 	
 	
 }
@@ -713,13 +721,6 @@ void run_genetic_algorithm(){
 	 *	distance_matrix[i] = new int[num_cities];
 }
 */
-	
-	//move distance_matrix into gpu
-	d_distance_matrix = 0;
-	cudaMalloc((void**)&d_distance_matrix, sizeof(float) * num_cities*num_cities);
-	cudaMemcpy(d_distance_matrix, distance_matrix, sizeof(float)*num_cities*num_cities, cudaMemcpyHostToDevice);
-	
-	
 	population = new tour[population_size];
 	closest_neighbors = new int*[num_cities];
 	for(int i = 0; i < num_cities; i ++){
@@ -728,10 +729,75 @@ void run_genetic_algorithm(){
 	}
 	
 	generate_initial_population();
+	
+	thrust::host_vector<tour> h_population(population_size);
+	for(int i = 0; i < population_size; i++){
+		h_population[i] = population[i];
+	}
+	thrust_population = h_population;
+	thrust::sort(thrust_population.begin(), thrust_population.end());
+	//move distance_matrix into gpu
+	d_distance_matrix = 0;
+	
+	cudaMalloc((void**)&d_distance_matrix, sizeof(float) * num_cities*num_cities);
+	
+	int num_threads = group_size/2;
+	int num_blocks = (num_threads + 31)/32;
+	dim3 block(32, 1);
+	dim3 grid(num_blocks, 1);
+	h_children = new tour[group_size];
+	h_parent_set1 = new tour[group_size/2];
+	h_parent_set2 = new tour[group_size/2];
+	h_index_of_parent_set1 = new tour[group_size/2];
+	h_index_of_parent_set2 = new tour[group_size/2];
+	h_cycles = new tour[group_size/2];
+	
+	
+	for(int i = 0 ; i < group_size; i =i+2){
+		h_parent_set1[i/2] = population[i];
+		h_parent_set2[i/2] = population[i+1];
+		//cout << "h_parent_set1 " << i/2 << " " <<  h_parent_set1[i/2].fitness << endl;
+		//cout << "h_parent_set2 " << i/2 << " " <<h_parent_set2[i/2].fitness << endl;
+	} 
+	
+	d_children = 0;
+	d_parent_set1 = 0;
+	d_parent_set2 = 0;
+	d_index_of_parent_set1 = 0;
+	d_index_of_parent_set2 = 0;
+	d_cycles = 0;
+	d_population = thrust::raw_pointer_cast(thrust_population.data());
+	d_children = thrust::raw_pointer_cast(thrust_children.data());
+	
+	//cout << "497 before cudaMallocs" << endl;
+	cudaMalloc((void**)&d_children, sizeof(tour)*group_size);
+	cudaMalloc((void**)&d_parent_set1, sizeof(tour)*group_size/2);
+	cudaMalloc((void**)&d_parent_set2, sizeof(tour)*group_size/2);
+	cudaMalloc((void**)&d_index_of_parent_set1, sizeof(tour)*group_size/2);
+	cudaMalloc((void**)&d_index_of_parent_set2, sizeof(tour)*group_size/2);
+	cudaMalloc((void**)&d_cycles, sizeof(tour)*group_size/2);
+	//cudaMalloc((void**)&d_population, sizeof(tour) * population_size);
+	//cout << "504 before cudaMemcpys " << endl;
+	
+	cudaMemcpy(d_children, h_children, sizeof(tour)*group_size, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_parent_set1, h_parent_set1, sizeof(tour)*group_size/2, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_parent_set2, h_parent_set2, sizeof(tour)*group_size/2, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_index_of_parent_set1, h_index_of_parent_set1, sizeof(tour)*group_size/2, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_index_of_parent_set2, h_index_of_parent_set2, sizeof(tour)*group_size/2, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_cycles, h_cycles, sizeof(tour)*group_size/2, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_distance_matrix, distance_matrix, sizeof(float)*num_cities*num_cities, cudaMemcpyHostToDevice);
+	//cudaMemcpy(d_population, population, sizeof(tour) * population_size);
+	
+
+	num_threads = group_size;
+	num_blocks = (num_threads + 31)/32;
+	dim3 block1(32, 1);
+	dim3 grid1(num_blocks, 1);
 
 	for(int j = 0; j < termination_step; j++){
-		tour* children = create_children();
-		create_new_generation(population, children, population_size, group_size);
+		create_children();
+		thrust::sort(thrust_children.begin(), thrust_children.end());
+		create_new_generation<<<block1, grid1>>>(d_population, d_children, population_size, group_size);
 
 	}
 	
@@ -739,9 +805,29 @@ void run_genetic_algorithm(){
 		population[m] = h_population[m];
 	}
 	*/
-	
+	thrust::sort(thrust_population.begin(), thrust_population.end());
+		
+	cudaFree(d_children);
+	cudaFree(d_parent_set1);
+	cudaFree(d_parent_set2);
+	cudaFree(d_index_of_parent_set1);
+	cudaFree(d_index_of_parent_set2);
+	cudaFree(d_cycles);
 	cudaFree(d_distance_matrix);
-	print_best_tour();
+	
+
+	
+	cudaMemcpy(population, d_population, sizeof(tour)*population_size, cudaMemcpyDeviceToHost);
+	//cudaMemcpy(best_tour, d_population[0], sizeof(tour), cudaMemcpyDeviceToHost);
+	
+	cudaFree(d_population);
+	
+	
+	cout << "Fitness: " << population[0].fitness << endl << "Tour \n";
+	for (int i = 0; i < num_cities; i++){
+		cout << population[0].path[i] << endl;
+	}
+	//print_best_tour();
 }
 
 /*
@@ -755,7 +841,6 @@ void print_best_tour(){
 	for (int i = 0; i < num_cities; i++){
 		cout << population[0].path[i] << endl;
 	}
-	
 }
 
 

@@ -36,7 +36,7 @@ void generate_initial_population();
  //void crossover(tour parent1, tour parent2, tour* children, int index);
  void sort_population();
  void qsort_population(int left, int right, tour* population) ;
- tour* create_children();
+ void create_children();
  void mutate(tour* t );
  void create_new_generation(tour* population, tour* children, int population_size, int group_size);
  void print_best_tour();
