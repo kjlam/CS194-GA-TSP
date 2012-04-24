@@ -494,8 +494,8 @@ __global__ void parallel_mutate(tour* d_children, int* d_mutate_indices, int gro
         int i = blockIdx.x * blockDim.x + threadIdx.x;
         int tid = threadIdx.x;
        
-        __shared__ tour tours[32];
-        tours[tid] = d_children[i];
+        //tour tours[32];
+        //tours[tid] = d_children[i];
        
         int num1 = d_mutate_indices[2*blockIdx.x] % num_cities;
         int num2 = d_mutate_indices[2*blockIdx.x+1] % num_cities;
@@ -504,24 +504,24 @@ __global__ void parallel_mutate(tour* d_children, int* d_mutate_indices, int gro
 		int end = max(num1, num2);
 
         if (i < group_size) {
-                /*
+                
                 while (start < end) {
-                        int temp = d_children[i].tour[start];
-                        d_children[i].tour[start] = d_children[i].tour[end];
-                        d_children[i].tour[end] = temp;
+                        int temp = d_children[i].path[start];
+                        d_children[i].path[start] = d_children[i].path[end];
+                        d_children[i].path[end] = temp;
                         start++;
                         end--;
                 }
-                */
-                while (start < end) {
+                
+               /* while (start < end) {
                         int temp = tours[tid].path[start];
                         tours[tid].path[start] = tours[tid].path[end];
                         tours[tid].path[end] = temp;
                         start++;
                         end--;
                 }
-               
-                d_children[i] = tours[tid];
+               */
+               // d_children[i] = tours[tid];
         }
 }
 
